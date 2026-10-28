@@ -29,6 +29,7 @@
     "courses:pin": "node harness/courses/cli.mjs pin",
     "courses:prepare": "node harness/courses/cli.mjs prepare",
     "courses:export": "node harness/courses/cli.mjs export",
+    "courses:preflight": "node harness/courses/cli.mjs preflight",
     "seed:courses": "node scripts/seed-courses.mjs",
     "model:sync": "node scripts/model-sync.mjs",
     "harness:key": "node scripts/harness-key.mjs",

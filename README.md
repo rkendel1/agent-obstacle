@@ -94,7 +94,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the harness contract
 | `npm run dev` | development server (app, AppPort, MCP, Studio) |
 | `npm test` | tests against real, isolated FeltDB instances and real AppPort HTTP (no mocks) |
 | `npm run typecheck` / `npm run build` | TypeScript; FeltKit build (backend bundle + frontend) |
-| `npm run seed:courses [-- --dir <dir>] [--dry-run]` | publish every `courses/<course>/<version>/course.json` (never reads `evaluator/`) |
+| `npm run seed:courses [-- --dir <dir>] [--dry-run]` | publish every `courses/<course>/<version>/course.json` with its `preflight.json` (never reads `evaluator/` or reference fixes) |
+| `npm run courses:preflight -- <course>/<version>` | the release gate: baseline must fail, reference must pass, every check executed, evaluator isolated and tamper-evident; writes `preflight.json` ([docs/courses/acceptance-v1.md](docs/courses/acceptance-v1.md)) |
 | `npm run harness:key [-- --name <n>] [--out <file>]` | create a harness API key (development) |
 | `npm run model:sync` | record the environment's Intelligence selection for the Configure screen |
 | `npx feltkit doctor` / `npx feltkit inspect` | health and state |
@@ -105,7 +106,8 @@ The seed, key and model scripts use the running dev server when there is one (de
 ## Status (honest)
 
 - **Works and is tested**: course publishing with canonical-JSON digests and immutability (all change paths refused,
-  also after restart); experiment digests and revisions; the full harness contract over AppPort HTTP with a real API
+  also after restart), gated by a passing preflight report bound to the exact digest; explicit evaluator resolution
+  (declarative `acceptance.v1` or a pinned private evaluator; `none`/missing/invalid/tampered → ERROR); experiment digests and revisions; the full harness contract over AppPort HTTP with a real API
   key (idempotent replays, fencing, cancel before/after admission, inconsistent results refused); comparison per
   course version; rerun; event ordering and bounds; durability across restarts; live change notifications.
 - **Depends on the harness**: nothing runs an agent until the harness (`harness/`) is started; launched runs wait in

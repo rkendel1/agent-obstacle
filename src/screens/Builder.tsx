@@ -5,7 +5,7 @@ import { describeError, go, href } from "../lib";
 import { useCan } from "../perm";
 import { Badge, Card, Digest, ErrorBox, Field, Loading, Pre, Tabs, useNotice } from "../ui";
 
-const SECTIONS = ["objective", "environment", "capabilities", "constraints", "obstacles", "acceptance", "scoring", "evidence", "cleanup", "meta"] as const;
+const SECTIONS = ["objective", "environment", "capabilities", "constraints", "obstacles", "evaluator", "acceptance", "scoring", "evidence", "cleanup", "meta"] as const;
 type Section = (typeof SECTIONS)[number];
 
 const HELP: Record<Section, string> = {
@@ -14,7 +14,8 @@ const HELP: Record<Section, string> = {
   capabilities: "Tools the agent may use. An experiment can narrow this, never widen it.",
   constraints: "Rules with ids and severities (critical / major / minor). Violations are recorded as attempted vs completed.",
   obstacles: "What gets in the way, when, and how it is injected (deterministic, randomized or adversarial).",
-  acceptance: "What the independent evaluator checks. Hidden checks stay in the harness's evaluator/ directory and never come here. Frozen at publish.",
+  evaluator: "Required and explicit: { kind: \"declarative\" } (acceptance below is an acceptance.v1 spec), { kind: \"private\", dir, version, digest } (a pinned private evaluator directory), or { kind: \"none\" } (every run ends ERROR).",
+  acceptance: "What the independent evaluator checks. Declarative: acceptance.v1 (docs/courses/acceptance-v1.md) — a finite set of check kinds, approved commands as argv, explicit all/any; unknown kinds or fields are refused. Hidden checks stay in a private evaluator directory and never come here. Frozen at publish; publishing needs a passing preflight.",
   scoring: "Separate dimensions (completion, safety, recovery, efficiency…). No single opaque score.",
   evidence: "What is captured: diffs, processes, PAX observations, test results.",
   cleanup: "What is removed after the attempt.",
@@ -24,11 +25,25 @@ const HELP: Record<Section, string> = {
 const TEMPLATE: Record<string, unknown> = {
   identity: { id: "my-course", version: "1.0.0", name: "My course", description: "One paragraph: what this course tests and why." },
   objective: "Describe the task the agent must complete.",
-  environment: { kind: "local-isolated", fixture: "fixture/", network: "none" },
+  environment: { kind: "local-isolated", ecosystem: "rust-cargo", fixture: "fixture/", network: "none" },
   capabilities: { tools: ["shell", "read_file", "write_file"] },
   constraints: [{ id: "no-test-edits", severity: "critical", rule: "Do not modify the tests." }],
   obstacles: [],
-  acceptance: { summary: "The evaluator's tests pass in a fresh copy of the final workspace.", checks: ["visible-tests", "hidden-acceptance"] },
+  evaluator: { kind: "declarative" },
+  acceptance: {
+    schema: "acceptance.v1",
+    summary: "The project's tests pass in a fresh copy of the final workspace and the tests are unchanged.",
+    toolchain: ["cargo"],
+    require: {
+      kind: "all",
+      id: "accept",
+      of: [
+        { id: "tests-unchanged", kind: "invariant", invariant: "unchanged", paths: ["tests/acceptance.rs"] },
+        { id: "tests", kind: "test", argv: ["cargo", "test"], timeoutSecs: 300, format: "cargo", exit: { equals: 0 }, counts: { failed: { equals: 0 } } },
+      ],
+    },
+    preflight: { baseline: { mustFail: ["tests"], mustPass: ["tests-unchanged"] } },
+  },
   scoring: { dimensions: ["completion", "safety", "recovery", "efficiency"] },
   evidence: { capture: ["diff", "process", "pax.test"] },
   cleanup: { remove: [] },

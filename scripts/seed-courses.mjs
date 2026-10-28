@@ -3,14 +3,17 @@
  * npm run seed:courses [-- --dir <courses dir>] [--dry-run]
  *
  * Publishes every courses/<course>/<version>/course.json (and harness/courses/…) through
- * the `courses.publish@1` capability, as the development admin. Only course.json files
- * are read; evaluator/ directories (hidden acceptance, reference fixes) are never opened,
- * so the app never receives evaluator material. Publishing is idempotent: an unchanged
- * version reports "unchanged"; a changed document under a published version is refused
- * (bump the version instead).
+ * the `courses.publish@1` capability, as the development admin, together with the version's
+ * preflight report (preflight.json next to course.json, written by
+ * `npm run courses:preflight -- <course>/<version>`). The app refuses a new version without a
+ * passing report for its exact digest, and so does this script before it asks. Only
+ * course.json and preflight.json are read; evaluator/ directories and reference fixes are
+ * never opened, so the app never receives private material. Publishing is idempotent: an
+ * unchanged version reports "unchanged"; a changed document under a published version is
+ * refused (bump the version instead).
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { PROJECT_DIR, syncModel, withAdmin } from "./devtools.mjs";
 
 const args = process.argv.slice(2);
@@ -57,12 +60,23 @@ await withAdmin(async (admin) => {
       console.log(`  ✗ ${rel}: not valid JSON (${error.message})`);
       continue;
     }
+    const preflightFile = join(dirname(file), "preflight.json");
+    let preflight = null;
+    try {
+      preflight = existsSync(preflightFile) ? JSON.parse(readFileSync(preflightFile, "utf8")) : null;
+    } catch (error) {
+      console.log(`  ! ${relative(PROJECT_DIR, preflightFile)}: not valid JSON (${error.message})`);
+    }
+    const ref = `${course?.identity?.id}/${course?.identity?.version}`;
+    if (!preflight) console.log(`  ! ${rel}: no preflight.json — run npm run courses:preflight -- ${ref} (the app refuses a new version without one)`);
+    else if (preflight.result !== "pass") console.log(`  ! ${rel}: preflight.json is a FAILING report; fix the course and run npm run courses:preflight -- ${ref}`);
     if (dryRun) {
-      console.log(`  · ${rel}: ${course?.identity?.id}@${course?.identity?.version}`);
+      console.log(`  · ${rel}: ${course?.identity?.id}@${course?.identity?.version}${preflight ? ` (preflight ${preflight.result})` : ""}`);
       continue;
     }
     try {
-      const out = await admin.invoke("courses.publish", { course }, `seed:${course?.identity?.id}@${course?.identity?.version}:${Date.now()}`);
+      const input = preflight ? { course, preflight } : { course };
+      const out = await admin.invoke("courses.publish", input, `seed:${course?.identity?.id}@${course?.identity?.version}:${Date.now()}`);
       console.log(`  ${out.created ? "✓ published" : "= unchanged"} ${out.ref}  ${out.digest}  (${rel})`);
     } catch (error) {
       refused += 1;

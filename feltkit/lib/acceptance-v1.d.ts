@@ -1,0 +1,23 @@
+// Types for acceptance-v1.js (the shared acceptance.v1 definition; see docs/courses/acceptance-v1.md).
+export declare const ACCEPTANCE_SCHEMA: "acceptance.v1";
+export declare const PRIVATE_ACCEPTANCE_SCHEMA: "aoc.private-acceptance.v1";
+export declare const EVALUATOR_KINDS: readonly ["declarative", "private", "none"];
+export type EvaluatorKind = (typeof EVALUATOR_KINDS)[number];
+export declare const CHECK_KINDS: readonly string[];
+export declare const INVARIANTS: readonly string[];
+export declare const TEST_FORMATS: readonly string[];
+export declare const STREAMS: readonly string[];
+export declare const LIMITS: Readonly<Record<string, number>>;
+export declare const APPROVED_PROGRAMS: Readonly<Record<string, { ecosystems: string[]; subcommands: string[] | null; flags: string[] }>>;
+export declare function pathProblem(p: unknown): string | null;
+export declare function argvProblems(argv: unknown, at: string, ctx?: { toolchain?: string[]; ecosystem?: string | null }): string[];
+export declare function regexProblem(re: unknown, flags?: unknown): string | null;
+export declare function walkChecks(root: unknown, visit: (check: Record<string, any>, at: string, depth: number) => void, at?: string, depth?: number): void;
+export declare function leafChecks(spec: unknown): Record<string, any>[];
+export declare function validateAcceptanceV1(spec: unknown, ctx?: { ecosystem?: string | null }): string[];
+export declare function preflightProblems(p: unknown, ctx: { known: Set<string>; countable: Set<string> }): string[];
+export declare function validatePrivateAcceptance(spec: unknown, ctx?: { ecosystem?: string | null; dir?: string }): string[];
+export declare function validateEvaluatorDeclaration(doc: unknown): string[];
+export declare function validateCourseAcceptance(doc: unknown): string[];
+export declare function acceptanceCheckIds(doc: unknown): string[];
+export declare function isDigest(d: unknown): boolean;

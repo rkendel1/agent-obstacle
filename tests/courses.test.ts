@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createTestApp } from "@feltdb/feltkit/testing";
 import { api } from "../feltkit/_generated/api.js";
 import { digestOf } from "../feltkit/lib/canonical.js";
-import { sampleCourse, seed } from "./support.js";
+import { preflightFor, sampleCourse, seed } from "./support.js";
 
 test("publishing a course version computes its digest over canonical JSON and is idempotent", async () => {
   const t = await createTestApp();
@@ -12,7 +12,7 @@ test("publishing a course version computes its digest over canonical JSON and is
     // Same document, keys in a different order: same canonical JSON, same digest.
     const reordered = Object.fromEntries(Object.entries(course).reverse());
     assert.equal(digestOf(course), digestOf(reordered));
-    const first = await t.as("ada").mutation(api.courses.publish, { course, digest: digestOf(course) });
+    const first = await t.as("ada").mutation(api.courses.publish, { course, digest: digestOf(course), preflight: preflightFor(course) });
     assert.equal(first.created, true);
     assert.match(first.digest, /^sha256:[0-9a-f]{64}$/);
     const again = await t.as("ada").mutation(api.courses.publish, { course: reordered });
@@ -35,7 +35,7 @@ test("a published course version is immutable; a new version is allowed; results
     assert.equal(original.status, "published");
 
     // Every change path is refused.
-    const changed = sampleCourse({ acceptance: { summary: "Easier acceptance", checks: ["visible-tests"] } });
+    const changed = sampleCourse({ acceptanceSummary: "Easier acceptance" });
     await assert.rejects(ada.mutation(api.courses.publish, { course: changed }), (e: any) => e.code === "INVALID_ARGUMENT" && e.details.reason === "immutable_version");
     await assert.rejects(ada.mutation(api.courses.updateDraft, { courseVersionId, spec: changed }), (e: any) => e.details.reason === "immutable_version");
     await assert.rejects(ada.mutation(api.courses.publishDraft, { courseVersionId }), (e: any) => e.details.reason === "immutable_version");
@@ -45,10 +45,12 @@ test("a published course version is immutable; a new version is allowed; results
     const { runId } = await t.as("grace").mutation(api.runs.launch, { experimentId, courseVersionId });
 
     // A new version (draft → publish) is allowed and does not touch v1.
-    const v2spec = sampleCourse({ version: "1.1.0", acceptance: { summary: "Stricter", checks: ["visible-tests", "hidden-acceptance", "clippy"] } });
+    const v2spec = sampleCourse({ version: "1.1.0", acceptanceSummary: "Stricter" });
     const draft = await t.as("grace").mutation(api.courses.createDraft, { spec: v2spec, derivedFrom: courseVersionId });
     await assert.rejects(t.as("grace").mutation(api.courses.publishDraft, { courseVersionId: draft.courseVersionId }), { code: "FORBIDDEN" });
     await assert.rejects(t.as("grace").mutation(api.runs.launch, { experimentId, courseVersionId: draft.courseVersionId }), (e: any) => e.details.reason === "not_published");
+    await assert.rejects(ada.mutation(api.courses.publishDraft, { courseVersionId: draft.courseVersionId }), (e: any) => e.details.reason === "preflight_required");
+    await ada.mutation(api.courses.recordPreflight, { report: preflightFor(v2spec) });
     const v2 = await ada.mutation(api.courses.publishDraft, { courseVersionId: draft.courseVersionId });
     assert.notEqual(v2.digest, original.digest);
 

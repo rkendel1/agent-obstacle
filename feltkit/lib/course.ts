@@ -2,13 +2,17 @@
  * The course document (course.json): validation and summary.
  *
  * Required top-level sections: identity, objective, environment, capabilities,
- * constraints, obstacles, acceptance, scoring, evidence, cleanup, meta. The inner shape of
- * most sections belongs to the harness and the course author; the app checks what it
- * relies on (identity, meta) and that the document is bounded JSON. Evaluator files
- * (hidden acceptance, reference fixes) are never sent: the seed script reads only
- * course.json files and skips every evaluator/ directory.
+ * constraints, obstacles, evaluator, acceptance, scoring, evidence, cleanup, meta. The inner
+ * shape of most sections belongs to the harness and the course author; the app checks what
+ * it relies on (identity, meta), that the document is bounded JSON, and — with the same
+ * module the harness uses (acceptance-v1.js) — the explicit evaluator declaration and the
+ * acceptance it implies: a declarative acceptance.v1 spec, or a private evaluator's pinned
+ * configuration. Unknown check kinds or fields are refused here, before anything can run.
+ * Private files (hidden acceptance, reference fixes) are never sent: the seed script reads
+ * only course.json and preflight.json files.
  */
 import { fail } from "@feltdb/feltkit";
+import { acceptanceCheckIds, validateCourseAcceptance } from "./acceptance-v1.js";
 import { byteLength, canonicalJson } from "./canonical.js";
 
 export const COURSE_SECTIONS = [
@@ -18,6 +22,7 @@ export const COURSE_SECTIONS = [
   "capabilities",
   "constraints",
   "obstacles",
+  "evaluator",
   "acceptance",
   "scoring",
   "evidence",
@@ -99,6 +104,7 @@ export function validateCourse(doc: unknown): CourseSummary {
     const v = doc[key];
     if (key in doc && !(isObject(v) || Array.isArray(v) || typeof v === "string")) problems.push(`${key} must be an object, an array, or a string`);
   }
+  if (!problems.some((p) => p.startsWith("missing section"))) problems.push(...validateCourseAcceptance(doc));
   if (problems.length) fail("INVALID_ARGUMENT", `The course document is invalid: ${problems.join("; ")}.`, { reason: "invalid_course", problems });
   return { courseId, version, name, description, kind, difficulty, skills, ...(expectedRuntimeSecs !== undefined ? { expectedRuntimeSecs } : {}) };
 }
@@ -125,6 +131,7 @@ export interface CourseDisplay {
   scoringDimensions: string[];
   acceptanceSummary: string;
   acceptanceChecks: string[];
+  evaluator: string;
   obstacles: string[];
   capabilities: string[];
 }
@@ -144,7 +151,8 @@ export function displayOf(spec: unknown): CourseDisplay {
     limits: short(meta.limits ?? "", 400),
     scoringDimensions: names(isObject(scoring) ? (scoring.dimensions ?? scoring) : scoring),
     acceptanceSummary: short(typeof acceptance === "string" ? acceptance : (acc.summary ?? acc.description ?? ""), 800),
-    acceptanceChecks: names(acc.checks ?? acc.criteria ?? acc.tests ?? []),
+    acceptanceChecks: acc.schema === "acceptance.v1" ? acceptanceCheckIds(doc).slice(0, 30) : names(acc.checks ?? acc.criteria ?? acc.tests ?? []),
+    evaluator: isObject(doc.evaluator) ? String(doc.evaluator.kind ?? "") + (doc.evaluator.version ? ` ${short(doc.evaluator.version, 80)}` : "") : "",
     obstacles: names(isObject(doc.obstacles) ? (doc.obstacles.items ?? doc.obstacles.list ?? doc.obstacles) : doc.obstacles),
     capabilities: names(isObject(doc.capabilities) ? (doc.capabilities.tools ?? doc.capabilities.allowed ?? doc.capabilities) : doc.capabilities),
   };

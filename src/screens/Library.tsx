@@ -105,6 +105,7 @@ function CourseCard({ course, canLaunch, canDraft }: { course: LibraryEntry; can
           ["Limits", v.display.limits],
           ["Scoring dimensions", <Chips items={v.display.scoringDimensions} />],
           ["Acceptance", v.display.acceptanceSummary || <Chips items={v.display.acceptanceChecks} />],
+          ["Evaluator", v.display.evaluator || "not declared"],
           course.publishedCount > 1 && ["Versions", `${course.publishedCount} published`],
         ]}
       />
@@ -127,7 +128,7 @@ function CourseCard({ course, canLaunch, canDraft }: { course: LibraryEntry; can
   );
 }
 
-const SECTIONS = ["identity", "objective", "environment", "capabilities", "constraints", "obstacles", "acceptance", "scoring", "evidence", "cleanup", "meta"] as const;
+const SECTIONS = ["identity", "objective", "environment", "capabilities", "constraints", "obstacles", "evaluator", "acceptance", "scoring", "evidence", "cleanup", "meta"] as const;
 
 export function CourseDetail({ courseVersionId }: { courseVersionId: string }) {
   const version = useQueryState(api.courses.get, { courseVersionId });
@@ -186,6 +187,22 @@ export function CourseDetail({ courseVersionId }: { courseVersionId: string }) {
               ["Skills", <Chips items={v.skills} />],
               ["Expected runtime", v.expectedRuntimeSecs ? fmtDuration(v.expectedRuntimeSecs * 1000) : null],
               ["Published", v.publishedAt ? `${fmtTime(v.publishedAt)} by ${v.publishedBy}` : "not published"],
+              ["Evaluator", v.display.evaluator || "not declared"],
+              v.acceptanceDigest && ["Acceptance digest", <Digest value={v.acceptanceDigest} />],
+              [
+                "Preflight",
+                v.preflight ? (
+                  <span>
+                    <Badge tone={v.preflight.passing ? "pass" : "fail"}>{v.preflight.passing ? "passed" : "failed"}</Badge>{" "}
+                    <span className="muted small">
+                      {v.preflight.gates.filter((g) => g.result === "pass").length}/{v.preflight.gates.length} gates · {v.preflight.completedAt}
+                      {v.preflightReportDigest ? " · gated this publish" : ""}
+                    </span>
+                  </span>
+                ) : (
+                  "none recorded (publishing needs a passing preflight)"
+                ),
+              ],
               ["Attempts", v.attempts],
               v.derivedFrom && ["Derived from", <a href={href(`course/${encodeURIComponent(v.derivedFrom)}`)}>{v.derivedFrom}</a>],
             ]}

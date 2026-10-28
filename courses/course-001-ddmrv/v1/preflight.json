@@ -1,0 +1,224 @@
+{
+  "schema": "aoc.preflight.v1",
+  "course": {
+    "id": "course-001-ddmrv",
+    "version": "v1",
+    "digest": "sha256:ed3a3aa1d291c8c807f025c5d73945f7ab9177739d0a46b9a68107f256a21d58"
+  },
+  "evaluator": {
+    "kind": "private",
+    "version": "t4-run-acceptance 1.0.0",
+    "digest": "sha256:f43fe1516e34d0f310d99de268f9446395593f19294b4c3f3840a3728904b69c"
+  },
+  "acceptanceDigest": "sha256:e283435e1982585b1a8ac48e327aa0c84c8a8b57176e0e04fb80712331914b05",
+  "harness": {
+    "evaluatorVersion": "@aoc/evaluator@1.1.0+eb2f4cdadb04",
+    "paxVersion": "pax 0.5.0",
+    "node": "v22.22.0"
+  },
+  "result": "pass",
+  "gates": [
+    {
+      "id": "evaluator-resolved",
+      "result": "pass",
+      "evidence": {
+        "kind": "private",
+        "version": "t4-run-acceptance 1.0.0",
+        "digest": "sha256:f43fe1516e34d0f310d99de268f9446395593f19294b4c3f3840a3728904b69c"
+      }
+    },
+    {
+      "id": "course-valid",
+      "result": "pass",
+      "evidence": {
+        "problems": []
+      }
+    },
+    {
+      "id": "fixture-reproducible",
+      "result": "pass",
+      "evidence": {
+        "pinned": "75d3e266e89acf39f9cd13071f3b67ff226eef6fc0e6e78a81981494fe821ae1",
+        "first": "75d3e266e89acf39f9cd13071f3b67ff226eef6fc0e6e78a81981494fe821ae1",
+        "second": "75d3e266e89acf39f9cd13071f3b67ff226eef6fc0e6e78a81981494fe821ae1",
+        "baseCommit": "268c9b46a71a5f2b4aea86d6c73a4a4371958f1f",
+        "secondBaseCommit": "268c9b46a71a5f2b4aea86d6c73a4a4371958f1f",
+        "firstFromCache": true
+      }
+    },
+    {
+      "id": "baseline-fails",
+      "result": "pass",
+      "evidence": {
+        "outcome": "FAIL",
+        "failureClass": "agent",
+        "acceptance": "fail",
+        "regression": "pass",
+        "checks": [
+          {
+            "id": "regression",
+            "result": "pass",
+            "executed": true,
+            "counts": {
+              "passed": 1660,
+              "failed": 0,
+              "skipped": 8
+            }
+          },
+          {
+            "id": "acceptance:spec/test/resolver-multi-version-acceptance.test.ts",
+            "result": "fail",
+            "executed": true,
+            "counts": {
+              "passed": 2,
+              "failed": 6,
+              "skipped": 0
+            }
+          }
+        ],
+        "expected": {
+          "mustFail": [
+            "acceptance:spec/test/resolver-multi-version-acceptance.test.ts"
+          ],
+          "mustPass": [
+            "regression"
+          ],
+          "counts": {
+            "acceptance:spec/test/resolver-multi-version-acceptance.test.ts": {
+              "passed": 2,
+              "failed": 6
+            }
+          }
+        },
+        "misses": []
+      }
+    },
+    {
+      "id": "reference-passes",
+      "result": "pass",
+      "evidence": {
+        "outcome": "PASS",
+        "failureClass": null,
+        "acceptance": "pass",
+        "regression": "pass",
+        "checks": [
+          {
+            "id": "regression",
+            "result": "pass",
+            "executed": true,
+            "counts": {
+              "passed": 1660,
+              "failed": 0,
+              "skipped": 8
+            }
+          },
+          {
+            "id": "acceptance:spec/test/resolver-multi-version-acceptance.test.ts",
+            "result": "pass",
+            "executed": true,
+            "counts": {
+              "passed": 8,
+              "failed": 0,
+              "skipped": 0
+            }
+          }
+        ],
+        "expected": {
+          "counts": {
+            "acceptance:spec/test/resolver-multi-version-acceptance.test.ts": {
+              "passed": 8,
+              "failed": 0
+            }
+          }
+        },
+        "misses": []
+      }
+    },
+    {
+      "id": "checks-executed",
+      "result": "pass",
+      "evidence": {
+        "expected": 2,
+        "baseline": {
+          "executed": 2,
+          "total": 2
+        },
+        "reference": {
+          "executed": 2,
+          "total": 2
+        },
+        "misses": []
+      }
+    },
+    {
+      "id": "evidence-captured",
+      "result": "pass",
+      "evidence": {
+        "captured": [
+          "digest:prepare",
+          "pax.observation:before",
+          "process:agent",
+          "pax.observation:after",
+          "diff:agent",
+          "digest:final",
+          "acceptance:verdict",
+          "acceptance:result",
+          "log:run-result",
+          "diff",
+          "process",
+          "acceptance",
+          "digest"
+        ],
+        "notApplicable": [
+          "pax.test (produced only by an agent; a control has none)",
+          "agent.report (produced only by an agent; a control has none)"
+        ],
+        "missing": []
+      }
+    },
+    {
+      "id": "evaluator-isolated",
+      "result": "pass",
+      "evidence": {
+        "privateFiles": [
+          "evaluator/PROVENANCE.json",
+          "evaluator/acceptance/resolver-multi-version-acceptance.test.ts",
+          "evaluator/reference/T4-appport-resolver-versions.diff",
+          "evaluator/upstream/prepare-checkout.sh",
+          "evaluator/upstream/run-acceptance.sh"
+        ],
+        "filesScanned": 1974,
+        "watched": [
+          "fixture",
+          "course",
+          "evaluatorCode"
+        ],
+        "misses": [],
+        "note": "detected, not prevented: the agent runs as the same OS user; a write to the course directory or evaluator code is a critical violation and a changed private evaluator ERRORs at evaluation"
+      }
+    },
+    {
+      "id": "tamper-detected",
+      "result": "pass",
+      "evidence": {
+        "tampered": "appended to evaluator/acceptance/resolver-multi-version-acceptance.test.ts",
+        "acceptance": "error",
+        "outcome": "ERROR",
+        "failureClass": "evaluator",
+        "reason": "evaluator-digest-mismatch"
+      }
+    },
+    {
+      "id": "cleanup",
+      "result": "pass",
+      "evidence": {
+        "evaluationCopies": 2,
+        "fixtureCacheIntact": true,
+        "scratchRemoved": true,
+        "misses": []
+      }
+    }
+  ],
+  "startedAt": "2026-10-28T18:07:18.237Z",
+  "completedAt": "2026-10-28T18:10:51.658Z"
+}

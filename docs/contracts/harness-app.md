@@ -26,7 +26,8 @@ Not for the harness (role `admin` only; listed so that discovery is not mistaken
 
 | Capability | Kind | Input | Output |
 | --- | --- | --- | --- |
-| `courses.publish@1` | mutation | `{ course: CourseDocument, digest?: string }` | `{ courseVersionId, ref, digest, created }` — idempotent on the document; a different document under a published `id@version` is refused |
+| `courses.publish@1` | mutation | `{ course: CourseDocument, digest?: string, preflight?: PreflightReport }` | `{ courseVersionId, ref, digest, created }` — idempotent on the document; a different document under a published `id@version` is refused; a new version needs a passing preflight for its exact digest (sent here, or recorded before) |
+| `courses.preflight.record@1` | mutation | `{ report: PreflightReport }` | `{ preflightId, courseDigest, reportDigest, passing, created }` — append-only, idempotent on the report's digest; refused (`immutable_version`) once the course digest is published |
 | `models.environment.record@1` | mutation | `{ ready, source, provider?, model?, endpoint?, protocol?, credentialRef?, credentialPresent?, problems? }` | `{ ok: true, observationId }` — the environment's Intelligence selection as observed (`npm run model:sync`); never a secret |
 
 ```ts
@@ -65,6 +66,8 @@ type RunResult = {
   observed: { exitCode?: number; signal?: string; durationMs: number; timedOut: boolean };    // what the runtime observed
   evaluation: {                                                                            // what the evaluator verified
     evaluatorVersion: string; acceptance: "pass" | "fail" | "not-run" | "error"; regression?: "pass" | "fail" | "not-run";
+    acceptanceResult?: { schema: "aoc.acceptance-result.v1"; result: string; executed: number; total: number;   // the acceptance record (v1.1)
+                         evaluator: { kind; version; digest; interpreter } | null; acceptanceDigest: string | null };
     checks: { id: string; result: "pass" | "fail" | "not-run" | "error"; detail?: string }[];
     violations: { id: string; severity: "critical" | "major" | "minor"; attempted: boolean; completed: boolean; detail: string }[];
   };
@@ -72,6 +75,8 @@ type RunResult = {
   recovery: { obstacleId?: string; injected: boolean; recognized?: boolean | null; recovered?: boolean | null; detail?: string }[];
   reproducibility: { courseDigest: string; fixtureDigest?: string; finalTreeDigest?: string; experimentDigest: string;
                      agentVersion?: string; paxVersion?: string; evaluatorVersion: string; workAuthorityRelease?: string;
+                     evaluator?: { kind: "declarative" | "private"; version: string; digest: string };   // v1.1: checked by the app
+                     acceptanceDigest?: string;                                                         // v1.1: checked by the app
                      deterministic: boolean; note: string };
   startedAt: string; completedAt: string;
 };
@@ -121,8 +126,10 @@ Response: `{ "type": "response", "requestId", "ok": true, "output": … }` or
 `details.reason` values: `workload_mismatch`, `not_admitted`, `invalid_state`, `stale_fencing_token`,
 `run_terminal`, `invalid_time`, `invalid_json`, `duplicate_seq`, `invalid_digest`, `digest_mismatch`,
 `no_content`, `evidence_conflict`, `result_conflict`, `course_digest_mismatch`, `experiment_digest_mismatch`,
-`inconsistent_result` (with `details.problems`), `too_large`, `too_many_events`, `too_much_evidence`,
-`too_many_stages`.
+`inconsistent_result` (with `details.problems`), `evaluator_mismatch` (with `details.problems`), `too_large`,
+`too_many_events`, `too_much_evidence`, `too_many_stages`. Admin course capabilities add `invalid_course`
+(with `details.problems`), `immutable_version`, `preflight_required`, `preflight_failed`, `preflight_mismatch`,
+`invalid_preflight`.
 
 ### Digests
 
@@ -151,13 +158,40 @@ type CourseVersion = {
 type CourseDocument = {                  // courses/<course>/<version>/course.json
   identity: { id: string /* lowercase slug */; version: string; name: string; description: string };
   objective: string | object; environment: unknown; capabilities: unknown; constraints: unknown; obstacles: unknown;
-  acceptance: unknown; scoring: unknown; evidence: unknown; cleanup: unknown;   // object, array or string; shape owned by the harness
+  evaluator: { kind: "declarative" | "private" | "none"; … };   // v1.1, required: explicit evaluator resolution
+  acceptance: unknown;                   // v1.1: validated by the app per evaluator.kind — acceptance.v1 (declarative) or
+                                         // aoc.private-acceptance.v1 (private); unknown kinds/fields refused
+  scoring: unknown; evidence: unknown; cleanup: unknown;   // object, array or string; shape owned by the harness
   meta: { skills: string[]; difficulty: string; kind: "deterministic" | "randomized" | "adversarial";
           expectedRuntimeSecs?: number; limits?: object; compatible?: unknown };
 };
 ```
 
-The Library shows, when present: `acceptance.summary` and `acceptance.checks` (ids or objects with `id`),
+`evaluator` and `acceptance` are specified in [docs/courses/acceptance-v1.md](../courses/acceptance-v1.md); the
+validator is shared by the app and the harness (`feltkit/lib/acceptance-v1.js`).
+
+```ts
+type PreflightReport = {                 // aoc.preflight.v1, written by `npm run courses:preflight` (preflight.json)
+  schema: "aoc.preflight.v1";
+  course: { id: string; version: string; digest: string };                  // the exact document it vouches for
+  evaluator: { kind: "declarative" | "private" | "none"; version?: string; digest?: string };
+  acceptanceDigest: string | null;       // sha256 of canonical JSON of course.acceptance
+  harness?: object; result: "pass" | "fail";
+  gates: { id: string; result: "pass" | "fail" | "not-run"; detail?: string; evidence?: object }[];   // ≤ 50
+  startedAt?: string; completedAt: string; error?: string;
+};                                       // ≤ 128 KiB; ids, results, counts and digests only
+```
+
+A report is **passing** when `result === "pass"`, every gate passed, and all of `evaluator-resolved`,
+`course-valid`, `fixture-reproducible`, `baseline-fails`, `reference-passes`, `checks-executed`,
+`evidence-captured`, `evaluator-isolated`, `tamper-detected`, `cleanup` are present. Publishing (both
+`courses.publish` and the Builder's `publishDraft`) requires a passing report recorded for the version's digest
+whose `evaluator.kind` is the document's, whose `evaluator.digest` is the document's pinned private evaluator
+digest (private courses), and whose `acceptanceDigest` is the document's acceptance. The version then records
+`preflightId`, `preflightReportDigest` and `acceptanceDigest`; `courses.get` returns the gating report's summary.
+
+The Library shows, when present: `acceptance.summary` and `acceptance.checks` (ids or objects with `id`; for
+acceptance.v1 the leaf check ids), `evaluator.kind`,
 `scoring.dimensions`, `capabilities.tools`, `obstacles` (array, ids), `meta.limits`, `meta.compatible`.
 
 `ExperimentSnapshot` conventions: `agent.options.capabilities` (string[]: the subset the agent may use),
@@ -195,10 +229,16 @@ accepted and compared): `modelCalls`, `toolExecutions`, `turns`, `inputTokens`, 
   `attempted`; `reproducibility.evaluatorVersion !== evaluation.evaluatorVersion`; a recovery entry recognized or
   recovered but not injected. Also refused: `workloadId` not the bound one, `courseDigest`/`experimentDigest` not the
   run's, `completedAt < startedAt`, result > 256 KiB. The identical result again → `ok`.
+  Refused with `evaluator_mismatch` (v1.1, for a course version that declares `evaluator`): a PASS or FAIL without
+  `reproducibility.evaluator` and `reproducibility.acceptanceDigest`; an `acceptanceDigest` that is not the
+  version's frozen acceptance; an `evaluator.kind` that is not the declared one; a private evaluator `digest` that is
+  not the pinned one.
 
-## Harness-side notes (harness v1.0) — what the client does
+## Harness-side notes (harness v1.0, v1.1) — what the client does
 
-Added by the harness (`harness/`); nothing above is changed.
+Added by the harness (`harness/`). v1.1 (declarative acceptance and course preflight) extends the contract:
+`courses.preflight.record@1`, the `preflight` input of `courses.publish@1`, the `evaluator` course section,
+`reproducibility.evaluator`/`acceptanceDigest` and their check in `runs.completed@1`; nothing else changed.
 
 - **Course resolution.** The harness finds the course version to run by `courseDigest` among its local
   `courses/<id>/<version>/course.json` (digest as above) and cross-checks `courses.version@1`'s `digest`. A run whose
@@ -209,8 +249,17 @@ Added by the harness (`harness/`); nothing above is changed.
   `digest`); `capabilities.allowed`; `constraints[]` (`id`, `severity`, `enforcement`:
   `enforced|detected|partially-detected|not-enforced`, `paths`); `obstacles.default[]` and
   `obstacles.variants.<name>[]` (`type`: `transient-test-failure` | `process-interruption`); `acceptance`
-  (`evaluatorDigest`, `install`, `recordOnly`, `regression.command`/`knownFlaky`, `hidden[]` with `file` under
-  `evaluator/`, `dest`, `command`; `reference.file`); `meta.limits`.
+  per `evaluator.kind` (v1.1; see docs/courses/acceptance-v1.md): `declarative` → an acceptance.v1 spec the harness
+  interprets; `private` → `evaluator.{dir, version, digest, reference.file}` plus the private configuration
+  (`toolchain`, `install`, `recordOnly`, `regression.command`/`knownFlaky`, `hidden[]` with `file` under
+  `evaluator/`, `dest`, `command`; `preflight`); `none` → the run ends ERROR (`failureClass: "evaluator"`) at
+  `prepare`; `meta.limits`.
+- **Evaluator provenance (v1.1).** The harness resolves the evaluator at `prepare` and again at `evaluate`
+  (private directory digest and course digest re-computed; a mismatch, a missing or invalid evaluator → ERROR,
+  `failureClass: "evaluator"`), and reports `reproducibility.evaluator` and `reproducibility.acceptanceDigest`.
+  The acceptance result is its own record (`evaluation.acceptanceResult`, evidence `acceptance:result`); the
+  outcome is classified from it and harness state only, never from `scoring`. A private evaluator's hidden step
+  output stays on the harness host (evidence `acceptance:acceptance-*` carries exit, timing and the log digest).
 - **Experiment conventions.** `obstacles: { enabled, overrides?: { variant } }` selects the course default or a
   named variant. `agent.options` is passed to the adapter (e.g. `leaseSecs`, `structuredOutput`, `temperature`,
   `maxIterations` for patch-agent). `model.endpoint` is the upstream the per-run harness proxy forwards to;
