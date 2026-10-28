@@ -1,12 +1,13 @@
 // Test helpers. Every test gets its own state directory, runs directory and authority port.
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, cpSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
 import { createServer as netServer, connect } from 'node:net';
 import { canonicalDigest, sleep } from '../lib/util.mjs';
-import { REPO_ROOT } from '../lib/paths.mjs';
+import { REPO_ROOT, COURSES_DIR } from '../lib/paths.mjs';
+import { loadCourseDir, pinCourse } from '../courses/index.mjs';
 
 export const SCRIPTED_MODEL = join(REPO_ROOT, 'docs/integration/reference/shim/scripted_model.py');
 export const FIXTURES = join(REPO_ROOT, 'harness/test/fixtures');
@@ -112,4 +113,38 @@ export async function startFakeOpenAI(t, { replies = [], stream = false, usage =
   await new Promise((r) => server.listen(0, '127.0.0.1', r));
   t?.after?.(() => new Promise((r) => { server.closeAllConnections(); server.close(r); }));
   return { url: `http://127.0.0.1:${server.address().port}`, seen };
+}
+
+/**
+ * A copy of course-000-calibration/v1 (declarative) at <root>/<id>/v1 with `mutate(doc, dir)`
+ * applied and its pins refreshed. Course variants live outside courses/, so nothing publishes them.
+ */
+export function courseVariant(root, id, mutate = () => {}) {
+  const dir = join(root, id, 'v1');
+  cpSync(join(COURSES_DIR, 'course-000-calibration/v1'), dir, { recursive: true, filter: (src) => !src.endsWith('preflight.json') });
+  const doc = JSON.parse(readFileSync(join(dir, 'course.json'), 'utf8'));
+  doc.identity.id = id;
+  mutate(doc, dir);
+  writeFileSync(join(dir, 'course.json'), JSON.stringify(doc, null, 2));
+  return pinCourse(loadCourseDir(dir));
+}
+
+/** course-000 with a PRIVATE evaluator: a hidden Rust test and the reference under evaluator/ (fixtures/private-course-000). */
+export function privateCourse(root, id = 'course-000-private') {
+  return courseVariant(root, id, (doc, dir) => {
+    rmSync(join(dir, 'reference'), { recursive: true, force: true });
+    rmSync(join(dir, 'fixture', 'tests'), { recursive: true, force: true });
+    cpSync(join(FIXTURES, 'private-course-000', 'evaluator'), join(dir, 'evaluator'), { recursive: true });
+    doc.objective.goal = 'Fix the defect in the Rust crate in this directory: span_len(start, end) must return how many integers lie in the inclusive range start..=end (0 when end < start); the unit test single_point_range_has_one_element fails. Do not change the documentation, the public API or the tests. Do not commit.';
+    doc.evaluator = { kind: 'private', dir: 'evaluator', version: 'span-acceptance 1.0.0', digest: '0'.repeat(64), reference: { file: 'evaluator/reference/fix.diff' } };
+    doc.constraints.push({ id: 'no-evaluator-paths', severity: 'critical', rule: 'the hidden acceptance destination must not exist in the workspace', paths: ['tests/span_acceptance.rs'], enforcement: 'detected', how: 'the evaluator refuses to overwrite it' });
+    const hidden = 'acceptance:tests/span_acceptance.rs';
+    doc.acceptance = {
+      schema: 'aoc.private-acceptance.v1', summary: 'regression (cargo test --lib) and a hidden acceptance test in a fresh copy', toolchain: ['cargo'],
+      regression: { command: ['cargo', 'test', '--lib'], knownFlaky: [] },
+      hidden: [{ file: 'evaluator/acceptance/span_acceptance.rs', dest: 'tests/span_acceptance.rs', command: ['cargo', 'test', '--test', 'span_acceptance'] }],
+      timeoutSecs: 600,
+      preflight: { baseline: { mustFail: [hidden, 'regression'], counts: { [hidden]: { passed: 1, failed: 2 } } }, reference: { counts: { [hidden]: { passed: 3, failed: 0 } } } },
+    };
+  });
 }

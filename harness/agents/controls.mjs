@@ -1,12 +1,13 @@
 // Controls: NOT agents. They calibrate that the harness + evaluator can produce each verdict.
-//  * reference-control  applies the course's reference fix (evaluator/reference/*) to the workspace.
+//  * reference-control  applies the course's reference fix (course.evaluator.reference.file, private:
+//                       never published, never in a workspace before this) to the workspace.
 //                       Expected outcome PASS. Clearly labelled `control: true` in results.
 //  * null-control       changes nothing (the base). Expected outcome FAIL.
 // Option `holdMs` (both): wait that long, abortably, before acting — used by tests that need a
 // stage that takes time (worker kill mid-stage, cancellation).
 import { join } from 'node:path';
 import { run } from '../lib/proc.mjs';
-import { sleep, tail } from '../lib/util.mjs';
+import { sleep, tail, sha256File } from '../lib/util.mjs';
 import { emptyMetrics } from './adapter.mjs';
 
 async function hold(ms, signal) {
@@ -26,8 +27,10 @@ export const referenceControl = {
   async run(req) {
     const t0 = Date.now();
     if (!(await hold(req.options?.holdMs, req.signal))) return result('reference-control', t0, { claims: { agentTerminalState: 'cancelled', summary: 'control (not an agent): cancelled before applying the reference fix' }, cancelled: true, exitCode: null });
-    const ref = req.course.doc.acceptance?.reference?.file;
-    if (!ref) throw Object.assign(new Error('course has no acceptance.reference.file'), { failureClass: 'harness' });
+    const decl = req.course.doc.evaluator?.reference;
+    const ref = decl?.file;
+    if (!ref) throw Object.assign(new Error('course has no evaluator.reference.file'), { failureClass: 'harness' });
+    if (decl.digest && sha256File(join(req.course.dir, ref)) !== decl.digest) throw Object.assign(new Error(`reference fix ${ref} does not match its pinned digest`), { failureClass: 'harness' });
     const r = run('git', ['apply', '--whitespace=nowarn', join(req.course.dir, ref)], { cwd: req.workspace, env: req.env });
     req.emit({ source: 'harness', kind: 'control', summary: `reference-control (NOT an agent): ${r.code === 0 ? 'applied' : 'could not apply'} ${ref}`, data: { exit: r.code } });
     if (r.code !== 0) throw Object.assign(new Error(`reference fix does not apply: ${tail(r.stderr, 400)}`), { failureClass: 'harness' });

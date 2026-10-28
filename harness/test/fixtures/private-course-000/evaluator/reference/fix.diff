@@ -1,0 +1,11 @@
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -8,7 +8,7 @@
+     if end < start {
+         return 0;
+     }
+-    (end - start) as u64
++    (end - start) as u64 + 1
+ }
+ 
+ /// Sum of the lengths of several inclusive ranges.

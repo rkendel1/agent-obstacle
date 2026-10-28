@@ -5,11 +5,16 @@
  * replaced, or deleted by any function in this app. Drafts may be edited or discarded;
  * publishing turns a draft into an immutable version. Runs can only be launched against
  * published versions, so acceptance cannot change after an attempt started.
+ *
+ * Release gate: a version is published only with a passing preflight report (aoc.preflight.v1,
+ * docs/courses/acceptance-v1.md) recorded for its exact digest, evaluator and acceptance. The
+ * report that gated the publish is bound to the version and can never be replaced.
  */
 import { fail, s, type MutationCtx, type QueryCtx } from "@feltdb/feltkit";
-import { app, courses, courseVersions, runs } from "./app.js";
+import { app, courses, courseVersions, preflightReports, runs } from "./app.js";
 import { digestOf, normalizeDigest } from "./lib/canonical.js";
 import { displayOf, validateCourse, type CourseSummary } from "./lib/course.js";
+import { preflightMismatches, REQUIRED_GATES, validatePreflightReport } from "./lib/preflight.js";
 
 function summaryOf(v: Record<string, any>) {
   return {
@@ -30,8 +35,94 @@ function summaryOf(v: Record<string, any>) {
     createdBy: v.createdBy as string,
     publishedAt: (v.publishedAt ?? null) as number | null,
     publishedBy: (v.publishedBy ?? null) as string | null,
+    acceptanceDigest: (v.acceptanceDigest ?? acceptanceDigestOf(v.spec)) as string | null,
+    evaluatorKind: (v.evaluatorKind ?? (v.spec as any)?.evaluator?.kind ?? null) as string | null,
+    preflightId: (v.preflightId ?? null) as string | null,
+    preflightReportDigest: (v.preflightReportDigest ?? null) as string | null,
     display: displayOf(v.spec),
   };
+}
+
+function acceptanceDigestOf(spec: unknown): string | null {
+  const acc = (spec as any)?.acceptance;
+  return acc === undefined ? null : digestOf(acc);
+}
+
+function preflightView(p: Record<string, any>) {
+  return {
+    preflightId: p.id as string,
+    courseDigest: p.courseDigest as string,
+    reportDigest: p.reportDigest as string,
+    result: p.result as "pass" | "fail",
+    passing: p.passing as boolean,
+    evaluatorKind: p.evaluatorKind as string,
+    evaluatorVersion: (p.evaluatorVersion ?? null) as string | null,
+    evaluatorDigest: (p.evaluatorDigest ?? null) as string | null,
+    acceptanceDigest: (p.acceptanceDigest ?? null) as string | null,
+    gates: p.gates as { id: string; result: string }[],
+    completedAt: p.completedAt as string,
+    recordedAt: p.recordedAt as number,
+    recordedBy: p.recordedBy as string,
+  };
+}
+
+/** Record a preflight report (append-only; idempotent on its digest). Refused once its course digest is published. */
+async function recordReport(ctx: MutationCtx, report: unknown, who: string, now: number) {
+  const summary = validatePreflightReport(report);
+  const [same] = await ctx.db.find(preflightReports, { reportDigest: summary.reportDigest }, { limit: 1 });
+  if (same) return { preflightId: same.id as string, summary, created: false };
+  const [published] = await ctx.db.find(courseVersions, { digest: summary.courseDigest, status: "published" }, { limit: 1 });
+  if (published) {
+    fail("INVALID_ARGUMENT", `${published.ref} is already published (gated by preflight ${published.preflightReportDigest ?? "of an earlier release"}); its preflight record is frozen.`, {
+      reason: "immutable_version",
+      ref: published.ref,
+    });
+  }
+  const id = await ctx.db.insert(preflightReports, {
+    ref: `${summary.courseId}@${summary.version}`,
+    courseId: summary.courseId,
+    version: summary.version,
+    courseDigest: summary.courseDigest,
+    reportDigest: summary.reportDigest,
+    result: summary.result,
+    passing: summary.passing,
+    evaluatorKind: summary.evaluatorKind,
+    ...(summary.evaluatorVersion ? { evaluatorVersion: summary.evaluatorVersion } : {}),
+    ...(summary.evaluatorDigest ? { evaluatorDigest: summary.evaluatorDigest } : {}),
+    ...(summary.acceptanceDigest ? { acceptanceDigest: summary.acceptanceDigest } : {}),
+    gates: summary.gates,
+    completedAt: summary.completedAt,
+    report,
+    recordedAt: now,
+    recordedBy: who,
+  });
+  return { preflightId: id, summary, created: true };
+}
+
+/** The passing preflight report that vouches for exactly this document, or a refusal. */
+async function requirePreflight(ctx: MutationCtx, spec: unknown, digest: string) {
+  const list = await ctx.db.find(preflightReports, { courseDigest: digest }, { orderBy: [{ field: "recordedAt", direction: "desc" }], limit: 20 });
+  const passing = list.filter((p) => p.passing);
+  if (!passing.length) {
+    const latest = list[0];
+    const failed = latest ? [...latest.gates.filter((g) => g.result !== "pass").map((g) => `${g.id} ${g.result}`), ...REQUIRED_GATES.filter((id) => !latest.gates.some((g) => g.id === id)).map((id) => `${id} missing`)].join(", ") || `result ${latest.result}` : "";
+    fail(
+      "INVALID_ARGUMENT",
+      list.length
+        ? `No passing preflight for ${digest}: the recorded report failed (${failed}). Fix the course and run npm run courses:preflight again.`
+        : `No preflight report for ${digest}. A course version is published only after a passing preflight: npm run courses:preflight -- <course>/<version>, then publish with it.`,
+      { reason: list.length ? "preflight_failed" : "preflight_required", courseDigest: digest },
+    );
+  }
+  let problems: string[] = [];
+  for (const p of passing) {
+    problems = preflightMismatches(
+      { courseId: p.courseId, version: p.version, courseDigest: p.courseDigest, evaluatorKind: p.evaluatorKind, evaluatorDigest: p.evaluatorDigest ?? null, acceptanceDigest: p.acceptanceDigest ?? null },
+      spec,
+    );
+    if (!problems.length) return p;
+  }
+  fail("INVALID_ARGUMENT", `The preflight report does not match this course document: ${problems.join("; ")}.`, { reason: "preflight_mismatch", problems });
 }
 
 /** Refuse any change to a published version. Every write path calls this first. */
@@ -74,13 +165,16 @@ function versionFields(spec: unknown, summary: CourseSummary) {
     difficulty: summary.difficulty,
     skills: summary.skills,
     ...(summary.expectedRuntimeSecs !== undefined ? { expectedRuntimeSecs: summary.expectedRuntimeSecs } : {}),
+    acceptanceDigest: digestOf((spec as Record<string, unknown>).acceptance),
+    evaluatorKind: String(((spec as Record<string, any>).evaluator ?? {}).kind ?? ""),
   };
 }
 
-/** Publish a draft record (status draft → published). The only transition a version makes. */
+/** Publish a draft record (status draft → published). The only transition a version makes; it needs a passing preflight for the exact document. */
 async function publishVersion(ctx: MutationCtx, version: Record<string, any>, who: string, now: number) {
   assertDraft(version);
-  await ctx.db.patch(courseVersions, version.id, { status: "published", publishedAt: now, publishedBy: who, updatedAt: now });
+  const preflight = await requirePreflight(ctx, version.spec, version.digest);
+  await ctx.db.patch(courseVersions, version.id, { status: "published", publishedAt: now, publishedBy: who, preflightId: preflight.id, preflightReportDigest: preflight.reportDigest, updatedAt: now });
   const [course] = await ctx.db.find(courses, { courseId: version.courseId }, { limit: 1 });
   if (course) {
     await ctx.db.patch(courses, course.id, {
@@ -97,17 +191,20 @@ async function publishVersion(ctx: MutationCtx, version: Record<string, any>, wh
 /**
  * Publish a course version from a course.json document. Idempotent: publishing the same
  * document again returns the existing version (created: false). A different document under
- * an already published id@version is refused: versions are immutable.
+ * an already published id@version is refused: versions are immutable. A new version needs a
+ * passing preflight report for its exact digest: sent here as `preflight` (recorded first), or
+ * recorded earlier with courses.preflight.record.
  */
 export const publish = app.mutation({
   access: "courses.publish",
-  args: { course: s.unknown(), digest: s.optional(s.string({ maxLength: 80 })) },
+  args: { course: s.unknown(), digest: s.optional(s.string({ maxLength: 80 })), preflight: s.optional(s.unknown()) },
   returns: s.object({ courseVersionId: s.string(), ref: s.string(), digest: s.string(), created: s.boolean() }),
   capability: {
     name: "courses.publish",
-    description: "Publish an immutable course version from a course.json document. The digest is sha256 over canonical JSON; a supplied digest must match.",
+    description:
+      "Publish an immutable course version from a course.json document. The digest is sha256 over canonical JSON; a supplied digest must match. Needs a passing preflight report (aoc.preflight.v1) for exactly this document.",
   },
-  handler: async (ctx, { course, digest }) => {
+  handler: async (ctx, { course, digest, preflight }) => {
     const who = ctx.auth.requirePrincipal().id;
     const summary = validateCourse(course);
     const computed = digestOf(course);
@@ -126,6 +223,8 @@ export const publish = app.mutation({
         existingDigest: existing.digest,
       });
     }
+    if (preflight !== undefined) await recordReport(ctx, preflight, who, now);
+    await requirePreflight(ctx, course, computed);
     await ensureCourse(ctx, summary, who, now);
     let id: string;
     if (existing) {
@@ -137,6 +236,38 @@ export const publish = app.mutation({
     }
     await publishVersion(ctx, (await ctx.db.get(courseVersions, id))!, who, now);
     return { courseVersionId: id, ref, digest: computed, created: true };
+  },
+});
+
+/**
+ * Record a preflight report (admin). Append-only and idempotent on the report's digest; a
+ * failing report is recorded too (it never gates a publish). Refused for a course digest that
+ * is already published: the report that gated a release is frozen with it.
+ */
+export const recordPreflight = app.mutation({
+  access: "courses.publish",
+  args: { report: s.unknown() },
+  returns: s.object({ preflightId: s.string(), courseDigest: s.string(), reportDigest: s.string(), passing: s.boolean(), created: s.boolean() }),
+  capability: {
+    name: "courses.preflight.record",
+    description: "Record a course preflight report (aoc.preflight.v1). Append-only; refused once the course digest is published.",
+  },
+  handler: async (ctx, { report }) => {
+    const who = ctx.auth.requirePrincipal().id;
+    const out = await recordReport(ctx, report, who, Date.now());
+    return { preflightId: out.preflightId, courseDigest: out.summary.courseDigest, reportDigest: out.summary.reportDigest, passing: out.summary.passing, created: out.created };
+  },
+});
+
+/** Preflight reports recorded for one course digest, newest first. */
+export const preflights = app.query({
+  access: "courses.read",
+  args: { courseDigest: s.string() },
+  handler: async (ctx, { courseDigest }) => {
+    const digest = normalizeDigest(courseDigest);
+    if (!digest) return [];
+    const list = await ctx.db.find(preflightReports, { courseDigest: digest }, { orderBy: [{ field: "recordedAt", direction: "desc" }], limit: 50 });
+    return list.map(preflightView);
   },
 });
 
@@ -197,7 +328,10 @@ export const get = app.query({
     const v = await ctx.db.get(courseVersions, courseVersionId);
     if (!v) fail("NOT_FOUND", "No such course version.");
     const attempts = await ctx.db.count(runs, { courseVersionId });
-    return { ...summaryOf(v), spec: v.spec, attempts };
+    const gate = v.preflightId ? await ctx.db.get(preflightReports, v.preflightId) : null;
+    const [latest] = gate ? [] : await ctx.db.find(preflightReports, { courseDigest: v.digest }, { orderBy: [{ field: "recordedAt", direction: "desc" }], limit: 1 });
+    const pf = gate ?? latest ?? null;
+    return { ...summaryOf(v), spec: v.spec, attempts, preflight: pf ? preflightView(pf) : null };
   },
 });
 

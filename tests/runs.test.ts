@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createTestApp } from "@feltdb/feltkit/testing";
 import { api } from "../feltkit/_generated/api.js";
-import { definition, resultFor, sampleCourse, seed } from "./support.js";
+import { definition, preflightFor, resultFor, sampleCourse, seed } from "./support.js";
 
 const AUTHORITY = { url: "http://127.0.0.1:7791", namespace: "aoc", release: "feltdb-server 0.3.0" };
 const harness = { id: "harness-key", type: "service" as const, roles: ["harness"] };
@@ -23,7 +23,8 @@ test("rerun creates a new run from the same experiment revision and course versi
     await finish(t, runId, "wl_a");
     // A newer revision and a newer course version exist; the rerun still pins the originals.
     await grace.mutation(api.experiments.save, { lineageId, name: "Stack-Agent + Qwen 3B", ...definition, budgets: { ...definition.budgets, maxTurns: 10 } });
-    await t.as("ada").mutation(api.courses.publish, { course: sampleCourse({ version: "2.0.0" }) });
+    const v2course = sampleCourse({ version: "2.0.0" });
+    await t.as("ada").mutation(api.courses.publish, { course: v2course, preflight: preflightFor(v2course) });
     const again = await grace.mutation(api.runs.rerun, { runId });
     const [a, b] = await Promise.all([grace.query(api.runs.get, { runId }), grace.query(api.runs.get, { runId: again.runId })]);
     assert.notEqual(b.runId, a.runId);
@@ -77,7 +78,8 @@ test("comparison is per course version, separates dimensions, and reports unknow
     assert.equal(ref.recovery.rate, null);
 
     // Mixed course versions are refused.
-    const v2 = await t.as("ada").mutation(api.courses.publish, { course: sampleCourse({ version: "2.0.0" }) });
+    const v2course = sampleCourse({ version: "2.0.0" });
+    const v2 = await t.as("ada").mutation(api.courses.publish, { course: v2course, preflight: preflightFor(v2course) });
     const r4 = await grace.mutation(api.runs.launch, { experimentId, courseVersionId: v2.courseVersionId });
     await assert.rejects(grace.query(api.runs.compare, { runIds: [r1.runId, r4.runId] }), (e: any) => e.code === "INVALID_ARGUMENT" && e.details.reason === "mixed_course_versions");
     await assert.rejects(grace.query(api.runs.compare, { courseVersionId, runIds: [r4.runId] }), (e: any) => e.details.reason === "mixed_course_versions");
@@ -164,7 +166,7 @@ test("everything survives a restart", async () => {
     assert.equal((await ada.query(api.experiments.get, { experimentId })).digest, experimentDigest);
     assert.equal((await ada.query(api.courses.get, { courseVersionId })).status, "published");
     // Immutability holds after a restart too.
-    await assert.rejects(ada.mutation(api.courses.publish, { course: sampleCourse({ acceptance: "changed" }) }), (e: any) => e.details.reason === "immutable_version");
+    await assert.rejects(ada.mutation(api.courses.publish, { course: sampleCourse({ acceptanceSummary: "changed" }) }), (e: any) => e.details.reason === "immutable_version");
   } finally {
     await t.close();
   }

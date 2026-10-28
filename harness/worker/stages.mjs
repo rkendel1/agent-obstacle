@@ -4,14 +4,14 @@
 // first one that has none.
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { TOOLS } from '../lib/paths.mjs';
+import { TOOLS, HARNESS_DIR } from '../lib/paths.mjs';
 import { canonicalDigest, treeDigest, readJSON, writeJSON, nowIso, bounded } from '../lib/util.mjs';
 import { run, groupAlive, terminateGroup } from '../lib/proc.mjs';
 import { findCourseByDigest, validateCourse, loadCourseDir, bareDigest } from '../courses/index.mjs';
 import { prepareFixture, createWorkspace } from '../courses/fixtures.mjs';
 import { obstacleSchedule, installPaxShim, paxShimSummary, assessTransientRecovery } from '../obstacles/index.mjs';
 import { paxObserve, workspaceDiff, workspaceStatus } from '../evidence/index.mjs';
-import { evaluate, classify, evaluatorVersion } from '../evaluator/index.mjs';
+import { evaluate, classify, evaluatorVersion, resolveEvaluator } from '../evaluator/index.mjs';
 import { getAdapter, ADAPTERS } from '../agents/index.mjs';
 import { agentEnv, resolveCredential } from '../agents/adapter.mjs';
 import { startModelProxy } from '../model-proxy/proxy.mjs';
@@ -93,6 +93,11 @@ const STAGE_IMPL = {
     }
     const expd = experimentDigest(input.experiment);
     if (input.experiment.digest && bareDigest(input.experiment.digest) !== bareDigest(expd)) throw new StageError(`experiment digest ${input.experiment.digest} does not reproduce (computed ${expd} over { agent, model, budgets, obstacles, environment })`, 'harness');
+    // Explicit evaluator resolution before anything runs: none / missing / invalid / tampered -> ERROR.
+    let ev;
+    try { ev = resolveEvaluator(course, { expectedCourseDigest: input.courseDigest }); }
+    catch (e) { throw new StageError(e.message, 'evaluator'); }
+    const evaluator = { kind: ev.kind, version: ev.version, digest: ev.digest, interpreter: ev.interpreter, acceptanceDigest: ev.acceptanceDigest };
     const problems = validateCourse(course);
     if (problems.length) throw new StageError(`course ${course.id}/${course.version} is not valid: ${problems.join('; ')}`, 'harness');
     const schedule = obstacleSchedule(course.doc, input.experiment.obstacles);
@@ -103,10 +108,10 @@ const STAGE_IMPL = {
     if (course.doc.environment.fixture.digest && fixture.fixtureDigest !== course.doc.environment.fixture.digest) throw new StageError(`prepared fixture digest ${fixture.fixtureDigest} does not match the course pin ${course.doc.environment.fixture.digest}`, 'environment');
     const workspace = join(ctx.runDir, 'workspace');
     createWorkspace(fixture, workspace);
-    const digests = { courseDigest: course.digest, fixtureDigest: fixture.fixtureDigest, experimentDigest: input.experiment.digest ?? experimentDigest(input.experiment), experimentDigestComputed: experimentDigest(input.experiment), evaluatorDigest: course.doc.acceptance.evaluatorDigest };
+    const digests = { courseDigest: course.digest, fixtureDigest: fixture.fixtureDigest, experimentDigest: input.experiment.digest ?? experimentDigest(input.experiment), experimentDigestComputed: experimentDigest(input.experiment), evaluator };
     recorder.addEvidence({ evidenceId: 'digest:prepare', kind: 'digest', label: 'course, fixture and experiment digests', source: 'harness', content: { ...digests, baseCommit: fixture.baseCommit, course: `${course.id}/${course.version}`, fixtureCached: fixture.cached } });
     recorder.emit({ source: 'harness', kind: 'environment', summary: `workspace ready: ${course.id}/${course.version} @ ${fixture.baseCommit.slice(0, 12)} (${fixture.cached ? 'cached fixture' : 'fresh fixture'})`, data: { workspace, schedule: schedule.map((o) => o.id) } });
-    return { course: { id: course.id, version: course.version, dir: course.dir }, fixture: { tree: fixture.tree, baseCommit: fixture.baseCommit, refs: fixture.refs, fixtureDigest: fixture.fixtureDigest }, workspace, schedule, digests, startedAt: nowIso() };
+    return { course: { id: course.id, version: course.version, dir: course.dir }, evaluator, fixture: { tree: fixture.tree, baseCommit: fixture.baseCommit, refs: fixture.refs, fixtureDigest: fixture.fixtureDigest }, workspace, schedule, digests, startedAt: nowIso() };
   },
 
   async 'observe-before'(ctx, state) {
@@ -138,7 +143,8 @@ const STAGE_IMPL = {
     const hooks = { onModelCall: null };
     const env = agentEnv({ runDir, paxBin: shim.bin });
     mkdirSync(join(runDir, 'target'), { recursive: true });
-    const watchedNow = () => ({ fixture: treeDigest(state.prepare.fixture.tree).digest, evaluator: treeDigest(join(course.dir, 'evaluator'), { exclude: [] }).digest });
+    // The course directory (document, private evaluator, reference) and the evaluator's own code are digested around the agent stage.
+    const watchedNow = () => ({ fixture: treeDigest(state.prepare.fixture.tree).digest, course: treeDigest(course.dir, { exclude: ['.git', 'node_modules', 'target'] }).digest, evaluatorCode: treeDigest(join(HARNESS_DIR, 'evaluator'), { exclude: [] }).digest });
     const watchedBefore = watchedNow();
 
     let proxy = null, model = null;
@@ -219,18 +225,31 @@ const STAGE_IMPL = {
     const course = loadCourseDir(state.prepare.course.dir);
     const outDir = join(ctx.runDir, 'eval');
     const t0 = Date.now();
-    const evaluation = await evaluate({ course, fixture: state.prepare.fixture, workspace: state.prepare.workspace, outDir, agent: state.agent.agent, budgets: ctx.input.experiment.budgets, watched: state.agent.watched });
-    const verdict = { acceptance: evaluation.acceptance, regression: evaluation.regression, checks: evaluation.checks, violations: evaluation.violations, error: evaluation.error ?? null, evalTreeDigest: evaluation.evalTreeDigest ?? null, steps: evaluation.steps };
+    const evaluation = await evaluate({ course, fixture: state.prepare.fixture, workspace: state.prepare.workspace, outDir, agent: state.agent.agent, budgets: ctx.input.experiment.budgets, watched: state.agent.watched, expectedCourseDigest: ctx.input.courseDigest });
+    const verdict = { acceptance: evaluation.acceptance, regression: evaluation.regression, checks: evaluation.checks, violations: evaluation.violations, error: evaluation.error ?? null, evalTreeDigest: evaluation.evalTreeDigest ?? null, steps: evaluation.steps, evaluator: evaluation.evaluator ?? null, acceptanceDigest: evaluation.acceptanceDigest ?? null };
     ctx.recorder.addEvidence({ evidenceId: 'acceptance:verdict', kind: 'acceptance', label: 'independent evaluation verdict', source: 'evaluator', content: { evaluatorVersion: evaluation.evaluatorVersion, ...verdict } });
+    ctx.recorder.addEvidence({ evidenceId: 'acceptance:result', kind: 'acceptance', label: 'acceptance result (its own record; no scoring)', source: 'evaluator', content: evaluation.acceptanceResult });
     for (const s of evaluation.steps ?? []) {
       const p = join(outDir, `${s.name}.log`);
-      if (existsSync(p)) ctx.recorder.addEvidence({ evidenceId: `acceptance:${s.name}`, kind: 'acceptance', label: `evaluator step ${s.name}${s.recordOnly ? ' (recorded, not scored)' : ''}`, source: 'evaluator', content: bounded(readFileSync(p, 'utf8'), 200 * 1024) });
+      if (!existsSync(p)) continue;
+      // A private evaluator's hidden step output (test names, assertions) stays on the harness host: only exit, timing and the log digest leave it.
+      if (s.hidden) ctx.recorder.addEvidence({ evidenceId: `acceptance:${s.name}`, kind: 'acceptance', label: `evaluator step ${s.name} (hidden acceptance; log kept on the harness host)`, source: 'evaluator', content: { step: s.name, exit: s.exit, timedOut: s.timedOut, ms: s.ms, logDigest: s.logDigest, log: 'not published: hidden acceptance output' } });
+      else ctx.recorder.addEvidence({ evidenceId: `acceptance:${s.name}`, kind: 'acceptance', label: `evaluator step ${s.name}${s.recordOnly ? ' (recorded, not scored)' : ''}`, source: 'evaluator', content: bounded(readFileSync(p, 'utf8'), 200 * 1024) });
     }
     for (const c of evaluation.checks) ctx.recorder.emit({ source: 'evaluator', kind: 'verification', summary: `${c.id}: ${c.result}${c.detail ? ` — ${c.detail}` : ''}`, data: c });
     const cls = classify({ agent: state.agent.agent, evaluation });
     ctx.recorder.emit({ source: 'evaluator', kind: 'verification', summary: `outcome ${cls.outcome}${cls.failureClass ? ` (${cls.failureClass})` : ''}; the agent's claim was not consulted`, data: cls });
     rmSync(join(outDir, 'target'), { recursive: true, force: true });
-    return { evaluation: { evaluatorVersion: evaluation.evaluatorVersion, acceptance: evaluation.acceptance, regression: evaluation.regression, checks: evaluation.checks.map((c) => ({ ...c, detail: c.detail ? bounded(c.detail, 600) : undefined })), violations: evaluation.violations }, outcome: cls.outcome, failureClass: cls.failureClass ?? null, ms: Date.now() - t0 };
+    const ar = evaluation.acceptanceResult;
+    return {
+      evaluation: {
+        evaluatorVersion: evaluation.evaluatorVersion, acceptance: evaluation.acceptance, regression: evaluation.regression,
+        checks: evaluation.checks.map((c) => ({ ...c, detail: c.detail ? bounded(c.detail, 600) : undefined })), violations: evaluation.violations,
+        acceptanceResult: { schema: ar.schema, result: ar.result, executed: ar.executed, total: ar.total, evaluator: ar.evaluator, acceptanceDigest: ar.acceptanceDigest },
+      },
+      evaluator: evaluation.evaluator ?? null, acceptanceDigest: evaluation.acceptanceDigest ?? null,
+      outcome: cls.outcome, failureClass: cls.failureClass ?? null, ms: Date.now() - t0,
+    };
   },
 
   async report(ctx, state, { failure }) {
@@ -277,11 +296,19 @@ export function buildResult(ctx, state, failure, { cancelled = false } = {}) {
       ...(state['observe-after'] ? { finalTreeDigest: `sha256:${state['observe-after'].finalTreeDigest}` } : {}),
       experimentDigest: exp.digest ?? experimentDigest(exp), ...(agent?.version ? { agentVersion: `${agent.adapter} ${agent.version}` } : {}),
       paxVersion: paxVersion() ?? undefined, evaluatorVersion: evaluation.evaluatorVersion, ...(ctx.workAuthority ? { workAuthorityRelease: ctx.workAuthority.release } : {}),
+      ...provenance(state),
       deterministic: !!(agent?.control && deterministicCourse),
       note: agent?.control ? `${agent.adapter} is a CONTROL, not an agent: it calibrates the harness and evaluator.` : 'Model-driven agent runs are not deterministic (even at temperature 0); repeat runs to compare.',
     },
     startedAt: state.prepare?.startedAt ?? nowIso(), completedAt: nowIso(),
   };
+}
+
+/** The course evaluator a run was resolved and evaluated with (kind, version, digest re-checked at evaluation). */
+function provenance(state) {
+  const ev = state.evaluate?.evaluator ?? state.prepare?.evaluator ?? null;
+  if (!ev) return {};
+  return { evaluator: { kind: ev.kind, version: ev.version, digest: ev.digest }, acceptanceDigest: state.evaluate?.acceptanceDigest ?? ev.acceptanceDigest };
 }
 
 function loadedMeta(state) {

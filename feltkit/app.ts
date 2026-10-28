@@ -96,8 +96,44 @@ export const courseVersions = app.collection(
     updatedAt: s.number(),
     publishedAt: s.optional(s.number()),
     publishedBy: s.optional(s.string()),
+    /** sha256 of the canonical JSON of `spec.acceptance` (frozen with the version). */
+    acceptanceDigest: s.optional(s.string()),
+    /** `spec.evaluator.kind`: declarative | private | none. */
+    evaluatorKind: s.optional(s.string()),
+    /** The passing preflight report that gated the publish (set by the publish transition only). */
+    preflightId: s.optional(s.string()),
+    preflightReportDigest: s.optional(s.string()),
   },
   { description: "Course versions. Published versions are immutable." },
+);
+
+/**
+ * Preflight reports (aoc.preflight.v1), recorded by an admin. Append-only: a report is never
+ * changed or removed, and once a course digest is published no further report can be recorded
+ * for it, so the report that gated the publish stays the audit record.
+ */
+export const preflightReports = app.collection(
+  "preflightReports",
+  {
+    ref: s.string(),
+    courseId: s.string(),
+    version: s.string(),
+    courseDigest: s.string(),
+    reportDigest: s.string(),
+    result: s.enum(["pass", "fail"]),
+    /** result pass AND every required gate pass. */
+    passing: s.boolean(),
+    evaluatorKind: s.string(),
+    evaluatorVersion: s.optional(s.string()),
+    evaluatorDigest: s.optional(s.string()),
+    acceptanceDigest: s.optional(s.string()),
+    gates: s.array(s.object({ id: s.string(), result: s.string() })),
+    completedAt: s.string(),
+    report: s.unknown(),
+    recordedAt: s.number(),
+    recordedBy: s.string(),
+  },
+  { description: "Course preflight reports (release gate). Append-only." },
 );
 
 /**

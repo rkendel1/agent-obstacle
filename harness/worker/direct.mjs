@@ -6,13 +6,13 @@ import { readJSON, writeJSON, nowIso } from '../lib/util.mjs';
 import { FileSink, Recorder } from './recorder.mjs';
 import { runStages } from './stages.mjs';
 
-export async function runDirect({ runId, input, adapters, sink, log = () => {}, runsRoot, signal }) {
+export async function runDirect({ runId, input, adapters, sink, log = () => {}, runsRoot, coursesRoot, signal }) {
   const runDir = join(runsRoot ?? runsDir(), runId);
   sink ??= new FileSink(runDir);
   const recorder = new Recorder(runId, runDir, sink, log);
   const cpPath = join(runDir, 'checkpoints.json');
   const done = new Map(Object.entries(readJSON(cpPath, {})));
-  const out = await runStages({ runId, workloadId: null, input, runDir, recorder, done, attemptNumber: 1, sink, adapters, signal }, {
+  const out = await runStages({ runId, workloadId: null, input, runDir, recorder, done, attemptNumber: 1, sink, adapters, coursesRoot, signal }, {
     checkpoint: async (stage, data) => { const all = readJSON(cpPath, {}); all[stage] = data; writeJSON(cpPath, all); },
     stageReport: (stage, status, detail) => sink.stage({ runId, workloadId: null, attemptNumber: 1, fencingToken: null, stage, status, at: nowIso(), ...(detail ? { detail } : {}) }),
   });
