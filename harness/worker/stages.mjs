@@ -160,7 +160,8 @@ const STAGE_IMPL = {
     let proxy = null, model = null;
     if (adapter.needsModel) {
       if (!exp.model) throw new StageError(`${adapter.id} needs a model selection in the experiment`, 'harness');
-      const credential = resolveCredential(exp.model.credentialRef);
+      const resolved = await resolveCredential(exp.model.credentialRef);
+      const credential = resolved?.value;
       const anthropic = exp.model.provider === 'anthropic';
       const upstream = exp.model.endpoint || (anthropic ? 'https://api.anthropic.com' : DEFAULT_MODEL_UPSTREAM());
       proxy = await startModelProxy({
@@ -170,7 +171,7 @@ const STAGE_IMPL = {
         onCall: (c) => recorder.emit({ source: 'harness', kind: 'model.call', summary: `model call ${c.n}: HTTP ${c.status} in ${c.secs}s${c.usage ? `, ${c.usage.prompt_tokens}+${c.usage.completion_tokens} tokens` : ''}${c.finish ? `, ${c.finish}` : ''}`, data: { n: c.n, status: c.status, secs: c.secs, usage: c.usage, finish: c.finish, request_bytes: c.request_bytes } }),
       });
       model = { endpoint: proxy.endpoint, model: exp.model.model, provider: exp.model.provider, structuredOutput: exp.model.inference?.structuredOutput };
-      recorder.emit({ source: 'harness', kind: 'model.call', summary: `per-run model proxy ${proxy.endpoint} -> ${upstream.replace(/\/\/[^@/]*@/, '//')}`, data: { model: exp.model.model, provider: exp.model.provider, credential: exp.model.credentialRef ? 'credential-ref (resolved on the harness host)' : 'none' } });
+      recorder.emit({ source: 'harness', kind: 'model.call', summary: `per-run model proxy ${proxy.endpoint} -> ${upstream.replace(/\/\/[^@/]*@/, '//')}`, data: { model: exp.model.model, provider: exp.model.provider, credential: resolved ? `${exp.model.credentialRef} from ${resolved.source}` : 'none' } });
     }
     const pi = state.prepare.schedule.find((o) => o.type === 'process-interruption');
     const interruption = pi ? { ...pi, marker: shim.config.interrupt?.marker ?? null } : null;

@@ -104,14 +104,16 @@ required evidence captured, evaluator isolated and tamper-evident, cleanup works
 | `FELTKIT_CREDENTIAL_<ID>` | — | value for `model.credentialRef = credential-ref:<id>` (hosted models only) |
 | `AOC_FAULT_KILL` | — | drill: `<stage>:after` or `<stage>:<ms>` SIGKILLs the worker once (marker in the run dir) |
 
-**Credentials.** Hosted-model keys for the harness come from the harness host's own environment
-(`FELTKIT_CREDENTIAL_<ID>`, resolved from the experiment's `credential-ref:`). The app's encrypted vault
-(`.feltkit/development/credentials.vault`, Studio → Models, `feltkit credential set`) is the app's custody; the
-harness never reads it. The resolved value is held by the per-run model proxy and sent only upstream; the agent
-gets a placeholder (`CHIP_API_KEY=local-placeholder`). Local models need no key.
+**Credentials.** A model key resolves on the harness host from the experiment's `credential-ref:<id>`:
 
-For an Anthropic model (experiment `credential-ref:anthropic`), set the key in the shell that runs the harness
-without putting it in your history, then start the harness:
+1. `FELTKIT_CREDENTIAL_<ID>` in the harness's environment always wins, and is the only source outside development.
+2. In local development (the app on a loopback URL, and this checkout's `.feltkit/development` vault present), the
+   key entered in **Studio → Models** (or `feltkit credential set`) is used: same machine, same user, same checkout,
+   read through FeltKit's own vault code. `AOC_CREDENTIALS_DEV_VAULT=0` turns this off.
+
+Run events record where the key came from, never the value. The per-run model proxy holds the value and sends it only
+upstream; the agent gets a placeholder (`CHIP_API_KEY=local-placeholder`). Local models need no key. To use a key
+that is not in Studio:
 
 ```bash
 read -rs FELTKIT_CREDENTIAL_ANTHROPIC && export FELTKIT_CREDENTIAL_ANTHROPIC

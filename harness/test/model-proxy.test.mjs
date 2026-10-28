@@ -100,3 +100,24 @@ test('anthropic protocol: forwards Messages with the held key as x-api-key, neve
   await call(); // 254 tokens now, over the budget of 200
   assert.equal((await call()).status, 429);
 });
+
+test('credentials: env var wins; in local development the key entered in Studio (FeltKit dev vault) resolves; never for a remote app', async (t) => {
+  const { resolveCredential } = await import('../agents/adapter.mjs');
+  const { pathToFileURL } = await import('node:url');
+  const { REPO_ROOT } = await import('../lib/paths.mjs');
+  const { CredentialVault, HostCredentials } = await import(pathToFileURL(join(REPO_ROOT, 'node_modules/@feltdb/feltkit/dist/runtime/credentials.js')).href);
+  const dir = mkdtempSync(join(tmpdir(), 'aoc-vault-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  // Stored through FeltKit's custody, the path Studio → Models uses.
+  const vault = new CredentialVault({ dir, scope: 'agent-obstacle-course:development' });
+  await new HostCredentials({ env: {}, vault }).store({ reference: { secretId: 'anthropic', tenantId: 't' }, value: 'sk-from-studio', context: { tenantId: 't', principalId: 'ada', purpose: 'test' } });
+  const opts = { vaultDir: dir };
+  const local = await resolveCredential('credential-ref:anthropic', { AOC_APP_URL: 'http://127.0.0.1:3000' }, opts);
+  assert.equal(local.value, 'sk-from-studio');
+  assert.match(local.source, /local development vault/);
+  const env = await resolveCredential('credential-ref:anthropic', { AOC_APP_URL: 'http://127.0.0.1:3000', FELTKIT_CREDENTIAL_ANTHROPIC: 'sk-env' }, opts);
+  assert.deepEqual(env, { value: 'sk-env', source: 'environment variable FELTKIT_CREDENTIAL_ANTHROPIC' });
+  await assert.rejects(resolveCredential('credential-ref:anthropic', { AOC_APP_URL: 'https://aoc.example.com' }, opts), /Studio → Models.*FELTKIT_CREDENTIAL_ANTHROPIC/);
+  await assert.rejects(resolveCredential('credential-ref:anthropic', { AOC_APP_URL: 'http://127.0.0.1:3000', AOC_CREDENTIALS_DEV_VAULT: '0' }, opts), /does not resolve/);
+  await assert.rejects(resolveCredential('credential-ref:openai', { AOC_APP_URL: 'http://127.0.0.1:3000' }, opts), /does not resolve/);
+});
