@@ -145,9 +145,10 @@ const STAGE_IMPL = {
     if (adapter.needsModel) {
       if (!exp.model) throw new StageError(`${adapter.id} needs a model selection in the experiment`, 'harness');
       const credential = resolveCredential(exp.model.credentialRef);
-      const upstream = exp.model.endpoint || DEFAULT_MODEL_UPSTREAM();
+      const anthropic = exp.model.provider === 'anthropic';
+      const upstream = exp.model.endpoint || (anthropic ? 'https://api.anthropic.com' : DEFAULT_MODEL_UPSTREAM());
       proxy = await startModelProxy({
-        upstream, credential, log: join(runDir, 'artifacts', 'model-calls.jsonl'), callTimeoutMs: exp.budgets.callTimeoutSecs * 1000 + 30_000,
+        upstream, credential, protocol: anthropic ? 'anthropic' : 'openai', log: join(runDir, 'artifacts', 'model-calls.jsonl'), callTimeoutMs: exp.budgets.callTimeoutSecs * 1000 + 30_000,
         tokenBudget: exp.model.inference?.maxTotalTokens ?? null, mode: exp.model.inference?.structuredOutputMode ?? 'translate',
         beforeReply: (c) => hooks.onModelCall?.(c),
         onCall: (c) => recorder.emit({ source: 'harness', kind: 'model.call', summary: `model call ${c.n}: HTTP ${c.status} in ${c.secs}s${c.usage ? `, ${c.usage.prompt_tokens}+${c.usage.completion_tokens} tokens` : ''}${c.finish ? `, ${c.finish}` : ''}`, data: { n: c.n, status: c.status, secs: c.secs, usage: c.usage, finish: c.finish, request_bytes: c.request_bytes } }),

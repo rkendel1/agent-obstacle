@@ -59,7 +59,7 @@ export function resolveCredential(ref, env = process.env) {
   if (!m) throw Object.assign(new Error('model.credentialRef must be a credential-ref: string'), { failureClass: 'harness' });
   const key = `FELTKIT_CREDENTIAL_${m[1].toUpperCase().replace(/[^A-Z0-9]/g, '_')}`;
   const v = env[key];
-  if (!v) throw Object.assign(new Error(`credential reference ${ref} does not resolve (${key} is not set on the harness host)`), { failureClass: 'model' });
+  if (!v) throw Object.assign(new Error(`credential reference ${ref} does not resolve: ${key} is not set where the harness runs. The harness never reads the app's vault; export it in the harness's shell (read -rs ${key} && export ${key}) and restart npm run harness:start`), { failureClass: 'model' });
   return v;
 }
 

@@ -87,6 +87,17 @@ models), `npm run courses:validate|pin|prepare|export|list`, `npm run harness:st
 harness never reads it. The resolved value is held by the per-run model proxy and sent only upstream; the agent
 gets a placeholder (`CHIP_API_KEY=local-placeholder`). Local models need no key.
 
+For an Anthropic model (experiment `credential-ref:anthropic`), set the key in the shell that runs the harness
+without putting it in your history, then start the harness:
+
+```bash
+read -rs FELTKIT_CREDENTIAL_ANTHROPIC && export FELTKIT_CREDENTIAL_ANTHROPIC
+```
+
+Anthropic runs use the proxy's `anthropic` protocol: Stack-Agent speaks Messages (`--provider anthropic
+--provider-profile anthropic`) to the per-run proxy, which forwards to `https://api.anthropic.com/v1/messages` (or
+the experiment's endpoint) with the held key as `x-api-key`, and records usage for the log and the token budget.
+
 ## A run
 
 `prepare` (course resolved by digest from `courses/`, course and experiment digests re-computed and checked,

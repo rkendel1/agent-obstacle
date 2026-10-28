@@ -55,7 +55,11 @@ export function workArgs(req, { stateDb, leaseSecs, deadlineSecs }) {
   const b = req.budgets; const m = req.model;
   return ['work', req.objective.goal, '--kind', req.objective.kind ?? 'change',
     '--provider', m.provider === 'anthropic' ? 'anthropic' : 'openai-compatible', '--model', m.model, '--endpoint', m.endpoint,
-    '--provider-profile', req.options?.providerProfile ?? 'local', '--structured-output', req.options?.structuredOutput ?? m.structuredOutput ?? 'schema',
+    // Anthropic: its profile (no temperature, no schema) unless the experiment names a mode; Anthropic accepts only
+    // schema-closed or none.
+    ...(m.provider === 'anthropic'
+      ? ['--provider-profile', req.options?.providerProfile ?? 'anthropic', ...((req.options?.structuredOutput ?? m.structuredOutput) ? ['--structured-output', req.options?.structuredOutput ?? m.structuredOutput] : [])]
+      : ['--provider-profile', req.options?.providerProfile ?? 'local', '--structured-output', req.options?.structuredOutput ?? m.structuredOutput ?? 'schema']),
     ...(b.maxOutputTokens ? ['--max-output-tokens', String(b.maxOutputTokens)] : []),
     '--call-timeout-secs', String(b.callTimeoutSecs), '--max-turns', String(b.maxTurns), '--max-executions', String(b.maxExecutions),
     '--deadline-secs', String(Math.max(1, Math.ceil(deadlineSecs))),
