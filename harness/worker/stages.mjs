@@ -300,6 +300,10 @@ export function buildResult(ctx, state, failure, { cancelled = false } = {}) {
   const proxy = state.agent?.proxy ?? null;
   const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   const evaluation = ev ?? { evaluatorVersion: evaluatorVersion(), acceptance: cancelled ? 'not-run' : failure ? 'not-run' : 'error', regression: 'not-run', checks: failure ? [{ id: `stage:${failure.stage}`, result: 'error', detail: bounded(failure.message, 600) }] : [], violations: [] };
+  // An agent that never started (BLOCKED) says why first, in the agent's own words (its stderr), not only in evidence.
+  if (agent?.notRun && !evaluation.checks.some((c) => c.id === 'agent:did-not-run')) {
+    evaluation.checks = [{ id: 'agent:did-not-run', result: 'error', detail: bounded(`${agent.adapter} exited ${agent.observed?.exitCode ?? '?'} before doing any work: ${agent.notRun.reason || 'no message'}`, 1200) }, ...evaluation.checks];
+  }
   const deterministicCourse = loadedMeta(state)?.kind === 'deterministic' && loadedMeta(state)?.fixtureDeterministic !== false;
   return {
     runId: ctx.runId, workloadId: ctx.workloadId ?? null, outcome: cls.outcome, ...(cls.failureClass ? { failureClass: cls.failureClass } : {}),
