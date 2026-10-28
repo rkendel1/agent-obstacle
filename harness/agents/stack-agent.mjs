@@ -51,6 +51,13 @@ export function settleUnknown(req, { stateDb, env }) {
   return out;
 }
 
+/**
+ * Stack-Agent's durable agent state (FeltDB), on unless the experiment sets `durableState: false`. Off, the agent
+ * runs with --no-state: no resume after a kill (process-interruption is skipped), and a goal over FeltDB's
+ * 1,024-byte objective limit can run (Stack-Agent persists the whole goal and is refused above it).
+ */
+export const durable = (req) => req.options?.durableState !== false;
+
 export function workArgs(req, { stateDb, leaseSecs, deadlineSecs }) {
   const b = req.budgets; const m = req.model;
   return ['work', req.objective.goal, '--kind', req.objective.kind ?? 'change',
@@ -64,7 +71,7 @@ export function workArgs(req, { stateDb, leaseSecs, deadlineSecs }) {
     '--call-timeout-secs', String(b.callTimeoutSecs), '--max-turns', String(b.maxTurns), '--max-executions', String(b.maxExecutions),
     '--deadline-secs', String(Math.max(1, Math.ceil(deadlineSecs))),
     ...(req.options?.temperature !== undefined ? ['--temperature', String(req.options.temperature)] : []),
-    '--state-db', stateDb, '--task-id', req.runId, '--lease-secs', String(leaseSecs), '--json'];
+    ...(durable(req) ? ['--state-db', stateDb, '--task-id', req.runId, '--lease-secs', String(leaseSecs)] : ['--no-state']), '--json'];
 }
 
 export const stackAgentAdapter = {
@@ -87,7 +94,8 @@ export const stackAgentAdapter = {
     const t0 = Date.now();
     const hardDeadline = t0 + (b.deadlineSecs + graceSecs) * 1000;
     const launches = [];
-    let interruption = req.interruption ? { ...req.interruption, fired: false } : null;
+    if (req.interruption && !durable(req)) req.emit({ source: 'harness', kind: 'obstacle.skipped', summary: 'process-interruption needs Stack-Agent durable state (durableState: false); not injected' });
+    let interruption = req.interruption && durable(req) ? { ...req.interruption, fired: false } : null;
     let timedOut = false, cancelled = false, last = null;
 
     while (true) {
@@ -164,7 +172,9 @@ export const stackAgentAdapter = {
 
     // Durable record, read after exit (it is locked while the work runs).
     let agentState = null;
-    const show = run(TOOLS.stackAgent, ['agent-state', 'show', '--state-db', stateDb, '--task-id', req.runId, '--json'], { cwd: req.workspace, env, timeoutMs: 60_000 });
+    const show = durable(req)
+      ? run(TOOLS.stackAgent, ['agent-state', 'show', '--state-db', stateDb, '--task-id', req.runId, '--json'], { cwd: req.workspace, env, timeoutMs: 60_000 })
+      : { code: 0, stdout: JSON.stringify({ durableState: false, note: 'run with --no-state: no durable agent state' }) };
     if (show.code === 0) { try { agentState = JSON.parse(show.stdout); } catch {} }
     writeFileSync(join(outDir, 'agent-state-show.json'), show.code === 0 ? show.stdout : JSON.stringify({ exit: show.code, stderr: tail(show.stderr, 2000) }));
 

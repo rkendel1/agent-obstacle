@@ -113,3 +113,13 @@ test('patch-agent helpers', () => {
   assert.equal(extractDiff('nothing'), null);
   assert.ok(keywords('Fix span_len in src/lib.rs so that cargo test passes').includes('span_len'));
 });
+
+test('stack-agent durableState: false runs with --no-state (no task id, state db or lease); the default keeps durable state', async () => {
+  const { workArgs } = await import('../agents/stack-agent.mjs');
+  const req = (options) => ({ objective: { goal: 'g' }, budgets: { maxTurns: 1, maxExecutions: 1, callTimeoutSecs: 30 }, model: { provider: 'anthropic', model: 'm', endpoint: 'e' }, runId: 'r', options });
+  const off = workArgs(req({ durableState: false }), { stateDb: 's', leaseSecs: 90, deadlineSecs: 9 });
+  assert.ok(off.includes('--no-state'));
+  for (const f of ['--task-id', '--state-db', '--lease-secs']) assert.ok(!off.includes(f), f);
+  const on = workArgs(req({}), { stateDb: 's', leaseSecs: 90, deadlineSecs: 9 });
+  assert.ok(!on.includes('--no-state') && on.includes('--task-id') && on.includes('--state-db'));
+});
