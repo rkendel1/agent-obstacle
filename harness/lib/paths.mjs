@@ -16,7 +16,7 @@ export const fixturesDir = () => process.env.AOC_FIXTURES_DIR || join(stateDir()
 export const runsDir = () => process.env.AOC_RUNS_DIR || join(homedir(), '.aoc', 'runs');
 
 /** First existing candidate: the explicit variable, then PATH, then the usual install locations. */
-function locate(envVar, name, fallbacks) {
+export function locate(envVar, name, fallbacks) {
   if (process.env[envVar]) return process.env[envVar];
   for (const dir of (process.env.PATH || '').split(delimiter).filter(Boolean)) {
     const p = join(dir, name);
@@ -26,10 +26,16 @@ function locate(envVar, name, fallbacks) {
 }
 
 const home = homedir();
+/** Where each tool is looked for: its override variable, PATH, then these. */
+export const TOOL_FALLBACKS = {
+  stackAgent: ['AOC_STACK_AGENT_BIN', 'stack-agent', [join(home, 'stack-agent/target/release/stack-agent'), '/home/user/stack-agent/target/release/stack-agent']],
+  pax: ['AOC_PAX_BIN', 'pax', [join(home, '.local/bin/pax'), join(home, '.cargo/bin/pax')]],
+  feltdbServer: ['FELTDB_SERVER_BIN', 'feltdb-server', [join(home, '.cargo/bin/feltdb-server'), '/opt/feltdb/bin/feltdb-server']],
+};
 export const TOOLS = {
-  stackAgent: locate('AOC_STACK_AGENT_BIN', 'stack-agent', [join(home, 'stack-agent/target/release/stack-agent'), '/home/user/stack-agent/target/release/stack-agent']),
-  pax: locate('AOC_PAX_BIN', 'pax', [join(home, '.local/bin/pax'), join(home, '.cargo/bin/pax')]),
-  feltdbServer: locate('FELTDB_SERVER_BIN', 'feltdb-server', [join(home, '.cargo/bin/feltdb-server'), '/opt/feltdb/bin/feltdb-server']),
+  stackAgent: locate(...TOOL_FALLBACKS.stackAgent),
+  pax: locate(...TOOL_FALLBACKS.pax),
+  feltdbServer: locate(...TOOL_FALLBACKS.feltdbServer),
   llmPython: process.env.AOC_LLM_PYTHON || '/opt/llm/venv/bin/python',
   modelsDir: process.env.AOC_MODELS_DIR || '/opt/llm/models',
 };

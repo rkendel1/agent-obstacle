@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "feltkit dev",
+    "dev": "node scripts/up.mjs",
+    "dev:app": "feltkit dev",
     "build": "feltkit build",
     "start": "feltkit start",
     "test": "feltkit test",

@@ -18,21 +18,25 @@ other `PASS` even if the harness sends one.
 
 ```bash
 npm install
-npm run dev                 # app on http://localhost:3000, FeltKit Studio linked from the header
-npm run seed:courses        # in another terminal: publish courses/*/*/course.json as the dev admin
-npm run harness:key -- --out .feltkit/harness.key   # an API key for the harness (role: harness), shown once
+npm run dev
 ```
+
+That one command starts everything and keeps it running until Ctrl-C:
+
+1. checks the tools and, on the first run, installs the missing ones with `cargo` (`feltdb-server` 0.3.0, `pax`,
+   `stack-agent`; needs Rust from https://rustup.rs; `--no-install` to skip);
+2. starts the FeltKit app on http://127.0.0.1:3000 (Studio: the Dashboard link it prints);
+3. publishes the courses (`courses/*/*/course.json`, idempotent);
+4. sets up (first run) and starts the work authority, a local `feltdb-server`;
+5. creates the harness's API key (`.harness/harness-api-key`), again whenever the app no longer accepts it;
+6. starts the harness, which picks up every run you launch in the app.
+
+Then: **Studio → Models** to choose a model and enter its API key (the harness uses that key in local development),
+open the app, pick a course, configure an agent and launch. `npm run dev -- --local-model 3b` also starts the bundled
+llama.cpp model server; `npm run dev:app` starts only the FeltKit app.
 
 Sign-in in development is a dev identity picker (top right): **ada** (admin), **grace** (developer), **linus**
 (viewer).
-
-Optional: select the environment's model in Studio → Models (or `npx feltkit model set --provider custom --model
-<model> --endpoint <url>`), then `npm run model:sync` so the Agent Configuration screen shows it (`seed:courses` also
-does this).
-
-### Start the harness
-
-<!-- HARNESS: the harness agent adds its commands here (work authority, model proxy, dispatcher/worker). -->
 
 ### Harness
 
@@ -48,6 +52,8 @@ Tools are found through the environment variable, then `PATH`, then the usual in
 | `stack-agent` | Stack-Agent runs | `cargo build --locked --release --bin stack-agent`, put it on `PATH` | `AOC_STACK_AGENT_BIN` |
 | llama-cpp-python + GGUF | local-model runs | `pip install 'llama-cpp-python[server]'` | `AOC_LLM_PYTHON`, `AOC_MODELS_DIR` |
 
+The pieces `npm run dev` runs, one at a time (for debugging):
+
 ```bash
 npm run harness:authority:setup                          # local feltdb-server 0.3.0 work authority (once)
 npm run harness:model:start -- --model 3b                # llama-cpp-python + model proxy (only for model-driven agents)
@@ -56,8 +62,6 @@ AOC_APP_URL=http://127.0.0.1:3000 AOC_HARNESS_API_KEY=$(cat .harness/harness-api
 npm run harness:test                                     # harness unit + Durable Work tests
 npm run harness:run -- --course course-000-calibration/v2 --adapter reference-control   # one run without the app
 ```
-
-<!-- /HARNESS -->
 
 ## Screens
 
@@ -91,7 +95,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the harness contract
 
 | Command | |
 | --- | --- |
-| `npm run dev` | development server (app, AppPort, MCP, Studio) |
+| `npm run dev [-- --local-model 3b] [--no-install] [--port N]` | everything: tools, app, courses, work authority, harness key, harness |
+| `npm run dev:app` | only the FeltKit development server (app, AppPort, MCP, Studio) |
 | `npm test` | tests against real, isolated FeltDB instances and real AppPort HTTP (no mocks) |
 | `npm run typecheck` / `npm run build` | TypeScript; FeltKit build (backend bundle + frontend) |
 | `npm run seed:courses [-- --dir <dir>] [--dry-run]` | publish every `courses/<course>/<version>/course.json` with its `preflight.json` (never reads `evaluator/` or reference fixes) |

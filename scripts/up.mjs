@@ -1,0 +1,162 @@
+#!/usr/bin/env node
+/**
+ * npm run dev — the whole Agent Obstacle Course on this machine, in one command.
+ *
+ *   1. tools: feltdb-server 0.3.0 and pax (required), stack-agent (for Stack-Agent runs), cargo / pnpm (for the
+ *      courses' toolchains). Missing ones are installed with cargo on the first run (--no-install to skip).
+ *   2. the FeltKit app (`feltkit dev`, http://127.0.0.1:3000, Studio at /_feltkit);
+ *   3. the courses (`seed:courses`, idempotent);
+ *   4. the work authority (local feltdb-server: set up once, then started);
+ *   5. the harness's API key (created once in .harness/harness-api-key, re-created when the app no longer knows it);
+ *   6. optionally a local model server (--local-model 3b|1.5b);
+ *   7. the harness dispatcher + worker.
+ * Logs are prefixed [app] / [harness]. Ctrl-C stops everything this command started.
+ *
+ * Model keys: enter them in Studio → Models; the harness reads them from this checkout's development vault
+ * (or FELTKIT_CREDENTIAL_<ID>, which wins). `npm run dev:app` starts only the FeltKit app.
+ */
+import { spawn, spawnSync } from "node:child_process";
+import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { setTimeout as sleep } from "node:timers/promises";
+import { PROJECT_DIR } from "./devtools.mjs";
+import { locate, TOOL_FALLBACKS } from "../harness/lib/paths.mjs";
+
+const args = process.argv.slice(2);
+const has = (f) => args.includes(f);
+const opt = (f) => { const i = args.indexOf(f); return i >= 0 ? args[i + 1] : undefined; };
+const say = (m) => console.log(`\x1b[1m[aoc]\x1b[0m ${m}`);
+const fail = (m) => { console.error(`\x1b[31m[aoc]\x1b[0m ${m}`); shutdown(1); };
+const children = [];
+let stopping = false;
+
+// ---------------------------------------------------------------------------------------------- 1. tools
+const PINS = {
+  "feltdb-server": { tool: "feltdbServer", required: true, install: ["install", "feltdb-server", "--version", "0.3.0", "--locked"] },
+  pax: { tool: "pax", required: true, install: ["install", "--git", "https://github.com/rkendel1/pax", "--rev", "c3fb3b4", "--locked", "pax"] },
+  "stack-agent": { tool: "stackAgent", required: false, install: ["install", "--git", "https://github.com/rkendel1/stack-agent", "--rev", "96fa787", "--locked", "--bin", "stack-agent", "stack-agent"], why: "Stack-Agent runs" },
+};
+const cargoBin = join(homedir(), ".cargo", "bin");
+process.env.PATH = [cargoBin, join(homedir(), ".local", "bin"), process.env.PATH].join(":");
+const onPath = (name) => spawnSync("sh", ["-c", `command -v ${name}`], { encoding: "utf8" }).stdout.trim() || null;
+const located = (name) => { const p = locate(...TOOL_FALLBACKS[PINS[name].tool]); return existsSync(p) ? p : null; };
+
+async function tools() {
+  for (const [name, pin] of Object.entries(PINS)) {
+    if (located(name)) continue;
+    if (has("--no-install") || !onPath("cargo")) {
+      const how = onPath("cargo") ? `cargo ${pin.install.join(" ")}` : "install Rust from https://rustup.rs, then rerun npm run dev";
+      if (pin.required) return fail(`${name} is required and not installed. ${how}`);
+      say(`${name} not installed: ${pin.why} will end ERROR until it is (${how}).`);
+      continue;
+    }
+    say(`installing ${name} with cargo (first run only; this can take several minutes)…`);
+    // Git installs use the machine's own git credentials (private repositories).
+    const r = spawnSync("cargo", pin.install, { stdio: "inherit", env: { ...process.env, CARGO_INCREMENTAL: "0", CARGO_NET_GIT_FETCH_WITH_CLI: "true" } });
+    if (r.status !== 0 || !located(name)) {
+      if (pin.required) return fail(`installing ${name} failed. Run: cargo ${pin.install.join(" ")}`);
+      say(`installing ${name} failed: ${pin.why} will end ERROR. Run: cargo ${pin.install.join(" ")}`);
+    }
+  }
+  for (const [name, use] of [["cargo", "course-000 (Rust)"], ["pnpm", "course-001 (T4)"], ["git", "fixtures"]]) {
+    if (!onPath(name)) say(`${name} not found: ${use} cannot be prepared or evaluated.`);
+  }
+  // The harness child resolves the same paths; pin them so it uses exactly what was checked here.
+  for (const name of Object.keys(PINS)) if (located(name)) process.env[TOOL_FALLBACKS[PINS[name].tool][0]] = located(name);
+}
+
+// ---------------------------------------------------------------------------------------------- helpers
+function start(label, cmd, argv, env = {}) {
+  const child = spawn(cmd, argv, { cwd: PROJECT_DIR, env: { ...process.env, ...env, FORCE_COLOR: "1" }, stdio: ["ignore", "pipe", "pipe"], detached: true });
+  const prefix = `\x1b[36m[${label}]\x1b[0m `;
+  for (const stream of [child.stdout, child.stderr]) {
+    let buf = "";
+    stream.on("data", (d) => { buf += d; const lines = buf.split("\n"); buf = lines.pop(); for (const l of lines) process.stdout.write(prefix + l + "\n"); });
+  }
+  child.on("exit", (code, signal) => { if (!stopping) fail(`${label} stopped (${signal ?? `exit ${code}`}).`); });
+  children.push(child);
+  return child;
+}
+
+function node(script, argv = [], env = {}) {
+  const r = spawnSync(process.execPath, [script, ...argv], { cwd: PROJECT_DIR, env: { ...process.env, ...env }, encoding: "utf8" });
+  return { ok: r.status === 0, out: `${r.stdout ?? ""}${r.stderr ?? ""}`.trim() };
+}
+
+async function appUrl() {
+  const file = join(PROJECT_DIR, ".feltkit", "development", "runtime.json");
+  for (let i = 0; i < 240; i++) {
+    try {
+      const rec = JSON.parse(readFileSync(file, "utf8"));
+      process.kill(rec.pid, 0);
+      const url = (rec.url ?? "http://127.0.0.1:3000").replace(/\/$/, "").replace("localhost", "127.0.0.1");
+      const r = await fetch(url, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+      if (r) return url;
+    } catch { /* not up yet */ }
+    await sleep(500);
+  }
+  return fail("the FeltKit app did not come up within 2 minutes (see the [app] lines above).");
+}
+
+async function keyWorks(url, key) {
+  const r = await fetch(`${url}/appport`, {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+    body: JSON.stringify({ protocol: "appport/1", type: "request", requestId: `up-${Date.now()}`, capability: { name: "runs.pending", version: 1 }, input: { limit: 1 } }),
+  }).catch(() => null);
+  if (!r) return false;
+  const body = await r.json().catch(() => null);
+  return Boolean(body?.ok);
+}
+
+function shutdown(code = 0) {
+  if (stopping) return;
+  stopping = true;
+  for (const c of children) { try { process.kill(-c.pid, "SIGTERM"); } catch { /* gone */ } }
+  const stop = node(join(PROJECT_DIR, "harness/work-authority/cli.mjs"), ["stop"]);
+  if (has("--local-model")) node(join(PROJECT_DIR, "harness/model-proxy/cli.mjs"), ["stop"]);
+  if (code === 0) say(`stopped (${stop.out.replace(/^\[authority\] /, "work authority: ")})`);
+  setTimeout(() => process.exit(code), 300);
+}
+process.on("SIGINT", () => shutdown(0));
+process.on("SIGTERM", () => shutdown(0));
+
+// ---------------------------------------------------------------------------------------------- run
+await tools();
+if (stopping) await sleep(1e9);
+
+say("starting the FeltKit app…");
+start("app", process.execPath, [join(PROJECT_DIR, "node_modules", "@feltdb", "feltkit", "bin", "feltkit.js"), "dev", ...(opt("--port") ? ["--port", opt("--port")] : [])]);
+const url = await appUrl();
+say(`app is up at ${url}`);
+
+const seeded = node(join(PROJECT_DIR, "scripts/seed-courses.mjs"));
+if (!seeded.ok) fail(`publishing the courses failed:\n${seeded.out}`);
+for (const l of seeded.out.split("\n").filter((l) => /^\s+[=+·!]/.test(l))) say(`course ${l.trim().replace(/\s+sha256:\S+/, "").replace(/\s+\(courses\/.*\)$/, "")}`);
+
+const authority = node(join(PROJECT_DIR, "harness/work-authority/cli.mjs"), ["status"]);
+const setUp = authority.ok || /"setUp":\s*true/.test(authority.out);
+const a = setUp ? node(join(PROJECT_DIR, "harness/work-authority/cli.mjs"), ["start"]) : (say("setting up the work authority (first run only)…"), node(join(PROJECT_DIR, "harness/work-authority/cli.mjs"), ["setup"]));
+if (!a.ok) fail(`work authority: ${a.out}`);
+say(a.out.split("\n").pop().replace(/^\[authority\] /, "work authority: "));
+
+mkdirSync(join(PROJECT_DIR, ".harness"), { recursive: true });
+const keyFile = join(PROJECT_DIR, ".harness", "harness-api-key");
+let key = existsSync(keyFile) ? readFileSync(keyFile, "utf8").trim() : "";
+if (!key || !(await keyWorks(url, key))) {
+  const k = node(join(PROJECT_DIR, "scripts/harness-key.mjs"), ["--out", keyFile]);
+  if (!k.ok) fail(`creating the harness API key failed:\n${k.out}`);
+  key = readFileSync(keyFile, "utf8").trim();
+  if (!(await keyWorks(url, key))) fail("the new harness API key is refused by the app.");
+  say("harness API key created (.harness/harness-api-key)");
+}
+
+if (has("--local-model")) {
+  const m = node(join(PROJECT_DIR, "harness/model-proxy/cli.mjs"), ["start", "--model", opt("--local-model")]);
+  if (!m.ok) fail(`local model server: ${m.out}`);
+  say(m.out.split("\n").pop());
+}
+
+start("harness", process.execPath, [join(PROJECT_DIR, "harness/cli.mjs"), "start"], { AOC_APP_URL: url, AOC_HARNESS_API_KEY: key });
+say(`ready. Open ${url}; Studio is the Dashboard link in the [app] lines above (model and API keys: Studio → Models). Ctrl-C stops everything.`);
