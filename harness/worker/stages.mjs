@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { TOOLS, HARNESS_DIR } from '../lib/paths.mjs';
 import { canonicalDigest, treeDigest, readJSON, writeJSON, nowIso, bounded } from '../lib/util.mjs';
 import { run, groupAlive, terminateGroup } from '../lib/proc.mjs';
-import { findCourseByDigest, validateCourse, loadCourseDir, bareDigest } from '../courses/index.mjs';
+import { findCourseByDigest, listCourses, validateCourse, loadCourseDir, bareDigest } from '../courses/index.mjs';
 import { prepareFixture, createWorkspace } from '../courses/fixtures.mjs';
 import { obstacleSchedule, installPaxShim, paxShimSummary, assessTransientRecovery } from '../obstacles/index.mjs';
 import { paxObserve, workspaceDiff, workspaceStatus } from '../evidence/index.mjs';
@@ -77,16 +77,26 @@ export async function runStages(ctx, { checkpoint, stageReport, afterStage = asy
   return { result: readJSON(join(ctx.runDir, 'result.json'), null), outcome: state.report?.outcome, state };
 }
 
-function resolveCourse(ctx) {
+export async function resolveCourse(ctx) {
   const c = findCourseByDigest(ctx.input.courseDigest, ctx.coursesRoot);
-  if (!c) throw new StageError(`no local course version has digest ${ctx.input.courseDigest} (the app's course document must be byte-for-byte the course.json under courses/)`, 'harness');
-  return c;
+  if (c) return c;
+  // Name the version and say what to do: usually the app holds a version this checkout no longer has
+  // (an older course.json, or a version replaced by a newer one).
+  let ref = null;
+  if (ctx.sink?.courseVersion && ctx.input.courseVersionId) ref = await ctx.sink.courseVersion(ctx.input.courseVersionId).then((r) => r.version?.ref ?? null, () => null);
+  const id = ref?.split('@')[0];
+  const local = id ? listCourses(ctx.coursesRoot).filter((x) => x.id === id).map((x) => `${x.id}@${x.version}`) : [];
+  const which = ref ? `course ${ref}` : `the run's course version`;
+  const fix = local.length
+    ? `This checkout has ${local.join(', ')}. Publish it with npm run seed:courses and launch the run on that version.`
+    : 'Check out the commit that published it, or publish this checkout\'s courses with npm run seed:courses and launch on one of them.';
+  throw new StageError(`${which} (${ctx.input.courseDigest}) is not in this checkout's courses/: the harness runs only a course.json identical to the published one. ${fix}`, 'harness');
 }
 
 const STAGE_IMPL = {
   async prepare(ctx) {
     const { recorder, input } = ctx;
-    const course = resolveCourse(ctx);
+    const course = await resolveCourse(ctx);
     if (ctx.sink?.courseVersion && input.courseVersionId) {
       const v = await ctx.sink.courseVersion(input.courseVersionId).then((r) => r.version, (e) => { throw new StageError(`courses.version: ${e.message}`, 'harness'); });
       if (v?.digest && v.digest !== input.courseDigest) throw new StageError(`course version ${input.courseVersionId} digest ${v.digest} differs from the run's ${input.courseDigest}`, 'harness');

@@ -85,3 +85,10 @@ test('validation catches an unpinned private evaluator change, an unpinned refer
     assert.ok(validateCourse(missing).some((x) => /missing section evaluator/.test(x)));
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 });
+
+test('a run on a course version this checkout does not have names the version and the fix', async () => {
+  const { resolveCourse } = await import('../worker/stages.mjs');
+  const sink = { courseVersion: async () => ({ version: { ref: 'course-000-calibration@v1' } }) };
+  await assert.rejects(resolveCourse({ input: { courseDigest: 'sha256:' + '0'.repeat(64), courseVersionId: 'cv1' }, sink }),
+    /course course-000-calibration@v1 .*not in this checkout.*has course-000-calibration@v2.*seed:courses/);
+});
