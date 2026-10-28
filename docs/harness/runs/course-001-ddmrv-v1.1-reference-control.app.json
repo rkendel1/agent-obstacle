@@ -1,0 +1,310 @@
+{
+  "recordedAt": "2026-10-28T17:59:55.144Z",
+  "mode": "end-to-end through the real FeltKit app (AppPort, harness API key) + Durable Work on feltdb-server 0.3.0",
+  "app": "http://127.0.0.1:3177",
+  "runId": "mvsf4x19632a045fdbea",
+  "course": "course-001-ddmrv@v1",
+  "adapter": "reference-control",
+  "appRunState": "terminal",
+  "appOutcome": "PASS",
+  "workloadId": "workload_f09894938e6eefa435295d61",
+  "result": {
+    "runId": "mvsf4x19632a045fdbea",
+    "workloadId": "workload_f09894938e6eefa435295d61",
+    "outcome": "PASS",
+    "claims": {
+      "agentTerminalState": "control:reference-applied",
+      "summary": "control (not an agent): applied the course reference fix evaluator/reference/T4-appport-resolver-versions.diff"
+    },
+    "observed": {
+      "exitCode": 0,
+      "durationMs": 7,
+      "timedOut": false
+    },
+    "evaluation": {
+      "evaluatorVersion": "@aoc/evaluator@1.1.0+eb2f4cdadb04",
+      "acceptance": "pass",
+      "regression": "pass",
+      "checks": [
+        {
+          "id": "evaluator",
+          "result": "pass",
+          "detail": "private t4-run-acceptance 1.0.0 sha256:f43fe1516e34…",
+          "executed": true
+        },
+        {
+          "id": "base-commit",
+          "result": "pass",
+          "detail": "HEAD 268c9b46a71a (base 268c9b46a71a)",
+          "executed": true
+        },
+        {
+          "id": "diff",
+          "result": "pass",
+          "detail": "1 file(s) changed: M packages/core/src/resolver.ts",
+          "executed": true
+        },
+        {
+          "id": "no-evaluator-paths",
+          "result": "pass",
+          "executed": true
+        },
+        {
+          "id": "forbidden-paths",
+          "result": "pass",
+          "executed": true
+        },
+        {
+          "id": "budgets",
+          "result": "pass",
+          "executed": true
+        },
+        {
+          "id": "workspace-only",
+          "result": "pass",
+          "detail": "watched: fixture, course, evaluatorCode",
+          "executed": true
+        },
+        {
+          "id": "record:audit-snapshot",
+          "result": "not-run",
+          "detail": "recorded, not scored (exit 0)",
+          "executed": true
+        },
+        {
+          "id": "regression",
+          "result": "pass",
+          "detail": "exit 0; passed 1660, failed 0",
+          "executed": true,
+          "counts": {
+            "passed": 1660,
+            "failed": 0,
+            "skipped": 8
+          }
+        },
+        {
+          "id": "acceptance:spec/test/resolver-multi-version-acceptance.test.ts",
+          "result": "pass",
+          "detail": "exit 0; passed 8, failed 0",
+          "executed": true,
+          "counts": {
+            "passed": 8,
+            "failed": 0,
+            "skipped": 0
+          }
+        }
+      ],
+      "violations": [],
+      "acceptanceResult": {
+        "schema": "aoc.acceptance-result.v1",
+        "result": "pass",
+        "executed": 2,
+        "total": 2,
+        "evaluator": {
+          "kind": "private",
+          "version": "t4-run-acceptance 1.0.0",
+          "digest": "sha256:f43fe1516e34d0f310d99de268f9446395593f19294b4c3f3840a3728904b69c",
+          "interpreter": "@aoc/evaluator@1.1.0+eb2f4cdadb04"
+        },
+        "acceptanceDigest": "sha256:e283435e1982585b1a8ac48e327aa0c84c8a8b57176e0e04fb80712331914b05"
+      }
+    },
+    "metrics": {
+      "agentDurationMs": 7,
+      "turns": null,
+      "executions": null,
+      "modelCallsReported": null,
+      "modelCallsObserved": null,
+      "inputTokensReported": null,
+      "outputTokensReported": null,
+      "promptTokensObserved": null,
+      "completionTokensObserved": null,
+      "paxTestsObserved": 0,
+      "paxTestsInjected": 0,
+      "filesChanged": 1,
+      "modelFailures": null,
+      "malformedReplies": null,
+      "interruptions": null,
+      "evaluationMs": 42844,
+      "attempts": 1
+    },
+    "recovery": [],
+    "reproducibility": {
+      "courseDigest": "sha256:ed3a3aa1d291c8c807f025c5d73945f7ab9177739d0a46b9a68107f256a21d58",
+      "fixtureDigest": "sha256:75d3e266e89acf39f9cd13071f3b67ff226eef6fc0e6e78a81981494fe821ae1",
+      "finalTreeDigest": "sha256:dab9387ea6b3da337fa132c8541e0bac2d3730e76ce4c4421da4703071f4e792",
+      "experimentDigest": "sha256:7520d5644e5a202a8e5de6e3d5e49ccfea59e310a95b1b8ffa84296f90f9764e",
+      "agentVersion": "reference-control control-1",
+      "paxVersion": "pax 0.5.0",
+      "evaluatorVersion": "@aoc/evaluator@1.1.0+eb2f4cdadb04",
+      "workAuthorityRelease": "feltdb-server 0.3.0",
+      "deterministic": false,
+      "note": "reference-control is a CONTROL, not an agent: it calibrates the harness and evaluator.",
+      "evaluator": {
+        "kind": "private",
+        "version": "t4-run-acceptance 1.0.0",
+        "digest": "sha256:f43fe1516e34d0f310d99de268f9446395593f19294b4c3f3840a3728904b69c"
+      },
+      "acceptanceDigest": "sha256:e283435e1982585b1a8ac48e327aa0c84c8a8b57176e0e04fb80712331914b05"
+    },
+    "startedAt": "2026-10-28T17:59:06.604Z",
+    "completedAt": "2026-10-28T17:59:53.933Z"
+  },
+  "eventsFromApp": {
+    "count": 38,
+    "byKind": {
+      "stage": 15,
+      "environment": 1,
+      "verification": 19,
+      "control": 1,
+      "claim": 1,
+      "file.change": 1
+    },
+    "notable": [
+      {
+        "seq": 13,
+        "source": "agent",
+        "kind": "claim",
+        "summary": "control claims: control:reference-applied; verified=n/a"
+      },
+      {
+        "seq": 23,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "evaluator: pass — private t4-run-acceptance 1.0.0 sha256:f43fe1516e34…"
+      },
+      {
+        "seq": 24,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "base-commit: pass — HEAD 268c9b46a71a (base 268c9b46a71a)"
+      },
+      {
+        "seq": 25,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "diff: pass — 1 file(s) changed: M packages/core/src/resolver.ts"
+      },
+      {
+        "seq": 26,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "no-evaluator-paths: pass"
+      },
+      {
+        "seq": 27,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "forbidden-paths: pass"
+      },
+      {
+        "seq": 28,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "budgets: pass"
+      },
+      {
+        "seq": 29,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "workspace-only: pass — watched: fixture, course, evaluatorCode"
+      },
+      {
+        "seq": 30,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "record:audit-snapshot: not-run — recorded, not scored (exit 0)"
+      },
+      {
+        "seq": 31,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "regression: pass — exit 0; passed 1660, failed 0"
+      },
+      {
+        "seq": 32,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:spec/test/resolver-multi-version-acceptance.test.ts: pass — exit 0; passed 8, failed 0"
+      },
+      {
+        "seq": 33,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "outcome PASS; the agent's claim was not consulted"
+      }
+    ]
+  },
+  "evidenceFromApp": [
+    {
+      "evidenceId": "digest:prepare",
+      "kind": "digest",
+      "digest": "sha256:6d1125ca19d657061ed74615ea58cebb99d5c157ea6322d4ba8bad2566b24d31"
+    },
+    {
+      "evidenceId": "pax.observation:before",
+      "kind": "pax.observation",
+      "digest": "sha256:fd3d5afcffb5617de482a623c79c7cf87a905fd9ca10ce2bb09339dff03dcd83"
+    },
+    {
+      "evidenceId": "process:agent",
+      "kind": "process",
+      "digest": "sha256:6b253045e77cb0974c5f2babd317fa0e0b0e30a6ecb7e3d2f50115adeb421da5"
+    },
+    {
+      "evidenceId": "pax.observation:after",
+      "kind": "pax.observation",
+      "digest": "sha256:f0e790daacbfa3a6d3993420d5c2e3ad989d4fa06f956d405e94b3f07fa01117"
+    },
+    {
+      "evidenceId": "diff:agent",
+      "kind": "diff",
+      "digest": "sha256:0a63c2887196006c65ef497fe165bba8f1104404ca4893f828021caabb4264fc"
+    },
+    {
+      "evidenceId": "log:git-status",
+      "kind": "log",
+      "digest": "sha256:60351ad63ce5046a3c17efbba0f82c2b2b7f1caa82d3c21828efad2b173a399b"
+    },
+    {
+      "evidenceId": "digest:final",
+      "kind": "digest",
+      "digest": "sha256:e901fc9380215a2ce7e3571d9abdc489f2c2cbf8ddde9273fbfd349f1f9061a4"
+    },
+    {
+      "evidenceId": "acceptance:verdict",
+      "kind": "acceptance",
+      "digest": "sha256:2712a6e981d9ac00e8f8e83e34b2434ce1135ba9e5c4d1e2e7aa502247f2504b"
+    },
+    {
+      "evidenceId": "acceptance:result",
+      "kind": "acceptance",
+      "digest": "sha256:90e9045549844de7a6980b4e72af2e55b8f38161c2b7462afb865d0e239d6068"
+    },
+    {
+      "evidenceId": "acceptance:install",
+      "kind": "acceptance",
+      "digest": "sha256:88aa27f726054c27463391bc5c7ae55c858434a7a6d660e9e33099c1aa338a9c"
+    },
+    {
+      "evidenceId": "acceptance:record-audit-snapshot",
+      "kind": "acceptance",
+      "digest": "sha256:6406ddf7a6423d2ea5b6c5315cdd1d02a57cce217a2ba0ecbda3a233f8d39e2f"
+    },
+    {
+      "evidenceId": "acceptance:regression",
+      "kind": "acceptance",
+      "digest": "sha256:48c4575138431b3e7101e910b1a38614e898156336b5341da9347b5578e9de5b"
+    },
+    {
+      "evidenceId": "acceptance:acceptance-spec_test_resolver-multi-version-acceptance.test.ts",
+      "kind": "acceptance",
+      "digest": "sha256:2438fe6c16066db7f1d3e442dc558ef924a69edc989b446947b1dcaffecd4473"
+    },
+    {
+      "evidenceId": "log:run-result",
+      "kind": "log",
+      "digest": "sha256:f567156e45905b7f390f13d2afaa3dd45232e30fdc5980a58fbbcac84129476f"
+    }
+  ]
+}

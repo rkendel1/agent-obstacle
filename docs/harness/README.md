@@ -14,11 +14,16 @@ harness/
   model-proxy/      OpenAI-compatible proxy in front of llama-cpp-python (+ harness:model:start|stop)
   obstacles/        PAX shim (transient-test-failure, process-interruption), worker fault injection
   evidence/         PAX observations, workspace diff (excluding .stack-agent/), digests, evidence store
-  evaluator/        independent acceptance + constraint checks + outcome classification
+  evaluator/        independent acceptance: explicit evaluator resolution, the acceptance.v1 interpreter
+                    (declarative.mjs), private evaluators, constraint checks, outcome classification
+  preflight/        the release gate of a course version (npm run courses:preflight)
   courses/          course library on disk, digests, validation/pinning, fixture cache
 courses/
-  course-000-calibration/v1/   tiny Rust crate, real off-by-one defect, hidden test, reference fix (PAX can verify)
-  course-001-ddmrv/v1/         T4 resolver defect on appport@268c9b4 (Discover, Diagnose, Modify, Recover, Verify)
+  course-000-calibration/v1/   tiny Rust crate, real off-by-one defect; DECLARATIVE acceptance (no evaluator/),
+                               public acceptance tests required unchanged, reference fix in reference/ (PAX can verify)
+  course-001-ddmrv/v1/         T4 resolver defect on appport@268c9b4 (Discover, Diagnose, Modify, Recover, Verify);
+                               PRIVATE evaluator (hidden test + reference from stack-agent, PROVENANCE.json)
+  <course>/<version>/preflight.json   the passing preflight report the seed script publishes with course.json
 ```
 
 ## Running everything end to end
@@ -33,7 +38,7 @@ npm ci
 # 1. the app (FeltKit dev server). Port 3000 by default; any free port works.
 npx feltkit dev --port 3100 --no-frontend &          # or: npm run dev
 export FELTKIT_URL=http://127.0.0.1:3100
-npm run seed:courses                                  # publishes courses/*/*/course.json (never evaluator/)
+npm run seed:courses                                  # publishes courses/*/*/course.json + preflight.json (never evaluator/)
 npm run harness:key -- --out .harness/harness-api-key # API key with role "harness" (0600 file)
 
 # 2. the work authority (once; idempotent; leaves the server running)
@@ -64,8 +69,26 @@ reference-control [--durable] [--evidence docs/harness/runs/x.json]` runs the sa
 unchanged base) is a harness-only control; the app's experiment form does not offer it.
 
 Other commands: `npm run harness:test` (node:test; starts its own authorities on free ports and scripted
-models), `npm run courses:validate|pin|prepare|export|list`, `npm run harness:status`, `npm run harness:clean --
---runs|--fixtures`.
+models), `npm run courses:validate|pin|prepare|export|list`, `npm run courses:preflight -- <course>/<version>`
+(release gate; writes `preflight.json`), `npm run harness:status`, `npm run harness:clean -- --runs|--fixtures`.
+
+### Course acceptance and the release gate
+
+Every course declares its evaluator (`evaluator.kind`: `declarative` | `private` | `none`); there is no implicit
+one. A declarative course's acceptance is an **acceptance.v1** spec — a finite set of check kinds (approved
+commands as argv with bounded timeouts, exit status, files exist, content / structured-output matches, test
+commands with parsed counts, final-state invariants, explicit `all`/`any`) that the harness interprets; it needs
+no `evaluator/` directory. A private evaluator is a pinned directory whose digest is re-checked at evaluation.
+`none`, a missing or invalid evaluator, or a changed evaluator / course document end the run ERROR
+(`failureClass: "evaluator"`). A course version is published only with a passing **preflight**: fixture
+reproducible, the unchanged fixture FAILS the declared checks, the reference PASSES all, every check executed,
+required evidence captured, evaluator isolated and tamper-evident, cleanup works. Full reference:
+[docs/courses/acceptance-v1.md](../courses/acceptance-v1.md).
+
+| Course | Preflight baseline (unchanged fixture) | Preflight reference |
+| --- | --- | --- |
+| course-000-calibration/v1 (declarative) | FAIL: unit tests 1 passed / 1 failed, acceptance tests 1 / 2 | PASS: 2 / 0 and 3 / 0, every check passed |
+| course-001-ddmrv/v1 (private, T4) | FAIL: hidden acceptance 2 passed / 6 failed, regression 1660 passed | PASS: hidden 8 / 0, regression 1660 passed |
 
 ### Environment
 
@@ -90,17 +113,20 @@ gets a placeholder (`CHIP_API_KEY=local-placeholder`). Local models need no key.
 ## A run
 
 `prepare` (course resolved by digest from `courses/`, course and experiment digests re-computed and checked,
-fixture from the cache, fresh workspace) → `observe-before` (PAX info/doctor/reality/drift) → `agent` (PAX shim on
+the evaluator resolved explicitly, fixture from the cache, fresh workspace) → `observe-before` (PAX info/doctor/reality/drift) → `agent` (PAX shim on
 PATH, per-run model proxy, adapter within budgets) → `observe-after` (PAX, diff excluding `.stack-agent/`, final tree
-digest) → `evaluate` (fresh tree = pristine fixture + the agent's diff; regression + hidden acceptance) → `report`
+digest) → `evaluate` (evaluator and course digests re-checked; fresh tree = pristine fixture + the agent's diff;
+declarative checks, or regression + hidden acceptance) → `report`
 (`runs.completed`). Each stage is checkpointed in Durable Work; a reclaimed attempt (higher fencing token) skips
 checkpointed stages. Stack-Agent's agent stage resumes the same task (`--task-id = runId`); other adapters restart
 the stage from a reset workspace. Events and evidence are numbered/identified deterministically and resent safely.
 
 Outcomes: PASS (acceptance pass, regression pass, no completed critical violation), FAIL (the agent ran and the
 evaluator did not accept), BLOCKED (could not start for reasons outside the agent: environment not prepared, model
-unavailable before any work), ERROR (harness/evaluator fault), CANCELLED. The agent's claim is recorded in
-`claims` and never consulted.
+unavailable before any work), ERROR (harness/evaluator fault — including evaluator kind `none`, a
+missing, invalid or tampered evaluator, an acceptance that could not be decided), CANCELLED. The agent's claim is
+recorded in `claims` and never consulted; the outcome is classified from the acceptance record and harness state
+only (never from `scoring`).
 
 ## What is enforced, detected, or not
 
@@ -109,7 +135,9 @@ unavailable before any work), ERROR (harness/evaluator fault), CANCELLED. The ag
 | Budgets (turns, executions, deadline, call timeout, output tokens) | enforced | passed to the agent as flags AND a harness wall clock (deadline + grace, process-group SIGTERM→SIGKILL) |
 | Total-token budget | enforced when set | per-run proxy answers 429 after `model.inference.maxTotalTokens` (Stack-Agent has none of its own) |
 | Host credentials | enforced | agent env is an allowlist (no `*_API_KEY`, `*TOKEN*`, `FELTKIT_CREDENTIAL_*`, `FELTDB_*`, proxy vars); tested |
-| Evaluator files hidden | enforced by layout | only under `courses/**/evaluator/`; never published, never copied into a workspace; acceptance runs in a separate tree |
+| Evaluator files hidden | enforced by layout | private files (`evaluator/`, the reference fix) are never published, never copied into a workspace; acceptance runs in a separate tree; hidden step output stays on the harness host; leak-tested |
+| Evaluator / acceptance tampering | detected (ERROR) | the course directory and the evaluator code are digested around the agent stage (critical violation), the private evaluator digest and the course digest are re-checked at evaluation, the app checks the reported provenance against the version |
+| Unknown or unexecuted acceptance checks | enforced | acceptance.v1 is validated at publish and again before running; an unexecuted check is never a pass |
 | Agent files influencing the evaluator | enforced | the evaluation tree is the pristine fixture + the agent's diff; ignored files (node_modules, target/, `.stack-agent/`) never reach it |
 | Commits | detected (critical) | HEAD/refs vs the base |
 | Planted acceptance file | detected (critical) | destination present in the workspace |
@@ -141,7 +169,10 @@ unavailable before any work), ERROR (harness/evaluator fault), CANCELLED. The ag
 
 ## Recorded runs
 
-`docs/harness/runs/` holds small JSON summaries (no secrets, no prompt bodies). `*.app.json` went end to end through
+`docs/harness/runs/` holds small JSON summaries (no secrets, no prompt bodies). The course-000 and course-001
+records below were made before v1.1 (declarative acceptance and preflight): their course digests and, for
+course-000, the hidden-test acceptance they show are the previous documents'; the v1.1 baseline/reference numbers
+are in the preflight table above and in each course's `preflight.json`. `*.app.json` went end to end through
 the real FeltKit app (AppPort, harness API key) and Durable Work on feltdb-server 0.3.0; `*.local.json` went through
 Durable Work with the local sink (`harness:run --durable`; null-control is harness-only).
 
@@ -154,3 +185,5 @@ Durable Work with the local sink (`harness:run --durable`; null-control is harne
 | `course-000-calibration-v1-stack-agent-qwen3b.app.json` | course-000 | stack-agent 0.1.0 + Qwen2.5-Coder-3B q4_k_m (CPU) | FAIL | 2 model calls, 1 read, then `escalated` without writing or running `pax test` (the transient obstacle was never triggered); claim recorded, not consulted |
 | `course-000-calibration-v1-patch-agent-qwen3b.app.json` | course-000 | patch-agent + the same 3B | FAIL | recognized and recovered from the injected transient `pax test` failure, reproduced the failure, 3 patches that did not apply |
 | `course-001-base-regression-determinism.json` | course-001 | — | — | the base regression ran 3/3 green; why integration-e2e is flaky |
+| `course-000-calibration-v1.1-reference-control.app.json` | course-000 (v1.1, declarative) | reference-control (control) | PASS | 9/9 declarative checks executed and passed; the app accepted `reproducibility.evaluator` (declarative) and `acceptanceDigest` |
+| `course-001-ddmrv-v1.1-reference-control.app.json` | course-001 (v1.1, private) | reference-control (control) | PASS | regression 1660 passed, hidden 8/8; private evaluator digest re-checked and accepted by the app |
