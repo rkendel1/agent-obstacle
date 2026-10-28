@@ -69,7 +69,8 @@ export async function runStages(ctx, { checkpoint, stageReport, afterStage = asy
       continue;
     }
     recorder.emit({ source: 'harness', kind: 'stage', summary: `${stage} completed`, data: { stage, status: 'completed' } });
-    await stageReport(stage, 'completed');
+    // After runs.completed the app refuses stage reports (run_terminal): the result is the report stage's completion.
+    if (stage !== 'report') await stageReport(stage, 'completed');
     await recorder.flush();
     await afterStage(stage);
   }

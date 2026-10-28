@@ -38,8 +38,8 @@ const published = await call("query", "courses:published");
 const recBudgets = { maxTurns: 12, maxExecutions: 10, deadlineSecs: 900, callTimeoutSecs: 300, maxOutputTokens: 1024 };
 const launched = [];
 for (const spec of all("--run")) {
-  const [ref, rest] = spec.split("=");
-  const [adapter, optText] = rest.split(":");
+  const eq = spec.indexOf("="); const ref = spec.slice(0, eq); const rest = spec.slice(eq + 1);
+  const colon = rest.indexOf(":"); const adapter = colon < 0 ? rest : rest.slice(0, colon); const optText = colon < 0 ? "" : rest.slice(colon + 1);
   const opts = Object.fromEntries((optText ?? "").split(",").filter(Boolean).map((kv) => { const [k, ...v] = kv.split("="); return [k, v.join("=")]; }));
   const cv = published.find((v) => v.ref === ref);
   if (!cv) throw new Error(`course version ${ref} is not published in the app (npm run seed:courses)`);
@@ -69,7 +69,6 @@ for (const l of launched) {
   const res = r.result ?? null;
   console.log(`${l.runId}: state ${r.state}, outcome ${r.outcome ?? res?.outcome}${res?.failureClass ? ` (${res.failureClass})` : ""}, acceptance ${res?.evaluation?.acceptance}`);
   if (EVDIR) {
-    const { runSummary } = await import("../harness/cli.mjs").catch(() => ({}));
     mkdirSync(EVDIR, { recursive: true });
     const events = await call("query", "runs:events", { runId: l.runId, tail: 200 }).catch((e) => ({ error: e.message }));
     const evidence = await call("query", "runs:evidenceIndex", { runId: l.runId }).catch((e) => ({ error: e.message }));
