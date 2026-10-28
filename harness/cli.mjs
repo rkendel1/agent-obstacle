@@ -11,9 +11,9 @@
 //   --max-turns N --max-executions N --deadline-secs N --call-timeout-secs N --max-output-tokens N
 //   --obstacles default|none|<variant>   --option key=value (agent options, repeatable)   --run-id ID
 //   --durable   --evidence docs/harness/runs/<name>.json (small JSON summary)   --keep-eval
-import { rmSync, existsSync, mkdirSync } from 'node:fs';
+import { rmSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { runsDir, fixturesDir, requireTool } from './lib/paths.mjs';
+import { runsDir, fixturesDir, requireTool, stateDir } from './lib/paths.mjs';
 import { canonicalDigest, writeJSON, readJSON, readJSONL, nowIso } from './lib/util.mjs';
 import { AppClient } from './app-client/index.mjs';
 import { loadState, refreshGrants, startAuthority, authorityStatus } from './work-authority/authority.mjs';
@@ -107,10 +107,24 @@ async function runLocal() {
   process.exitCode = outcome ? 0 : 1;
 }
 
+/** One dispatcher per checkout: a second one would race the first for claims ("RUNNING under another claim"). */
+function singleInstance() {
+  const file = join(stateDir(), 'harness.pid');
+  const other = existsSync(file) ? Number(readFileSync(file, 'utf8').trim()) : null;
+  if (other && other !== process.pid) {
+    try { process.kill(other, 0); throw new Error(`a harness is already running for this checkout (pid ${other}). Stop it (or stop the npm run dev that started it) first.`); }
+    catch (e) { if (e.code !== 'ESRCH') throw e; }
+  }
+  mkdirSync(stateDir(), { recursive: true });
+  writeFileSync(file, `${process.pid}\n`);
+  process.on('exit', () => { try { if (readFileSync(file, 'utf8').trim() === String(process.pid)) rmSync(file); } catch { /* gone */ } });
+}
+
 async function main() {
   switch (cmd) {
     case 'start':
     case 'once': {
+      singleInstance();
       requireTool('pax'); // every run observes with PAX; Stack-Agent is checked when a run uses it
       const state = await authority();
       const app = AppClient.fromEnv();

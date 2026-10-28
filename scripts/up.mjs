@@ -16,7 +16,7 @@
  * (or FELTKIT_CREDENTIAL_<ID>, which wins). `npm run dev:app` starts only the FeltKit app.
  */
 import { spawn, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync, mkdirSync, readlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
@@ -65,6 +65,45 @@ async function tools() {
   // The harness child resolves the same paths; pin them so it uses exactly what was checked here.
   for (const name of Object.keys(PINS)) if (located(name)) process.env[TOOL_FALLBACKS[PINS[name].tool][0]] = located(name);
 }
+
+// ---------------------------------------------------------------------------------------------- leftovers
+/** Working directory of a process (Linux /proc, macOS lsof), or null. */
+function cwdOf(pid) {
+  try { return readlinkSync(`/proc/${pid}/cwd`); } catch { /* not Linux */ }
+  const r = spawnSync("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { encoding: "utf8" });
+  return (r.stdout ?? "").split("\n").find((l) => l.startsWith("n"))?.slice(1) ?? null;
+}
+
+/** App, harness and work-authority processes of THIS checkout left from an earlier start (another terminal, a crash). */
+function leftovers() {
+  const ps = spawnSync("ps", ["-axo", "pid=,command="], { encoding: "utf8" }).stdout ?? "";
+  const found = [];
+  for (const line of ps.split("\n")) {
+    const m = /^\s*(\d+)\s+(.*)$/.exec(line);
+    if (!m) continue;
+    const pid = Number(m[1]); const cmd = m[2];
+    if (pid === process.pid || pid === process.ppid) continue;
+    const what = /harness\/cli\.mjs (start|once)/.test(cmd) ? "harness"
+      : /feltkit(\.js)? dev\b/.test(cmd) && !/scripts\/up\.mjs/.test(cmd) ? "app"
+      : /scripts\/up\.mjs/.test(cmd) && !/^(sh|npm)/.test(cmd) ? "npm run dev"
+      : /feltdb-server .*--namespace aoc/.test(cmd) ? "work authority" : null;
+    if (!what) continue;
+    const mine = cmd.includes(PROJECT_DIR) || cwdOf(pid) === PROJECT_DIR;
+    if (mine) found.push({ pid, what });
+  }
+  return found;
+}
+
+async function stopLeftovers() {
+  const found = leftovers();
+  if (!found.length) return;
+  say(`stopping what an earlier start left running here: ${found.map((f) => `${f.what} (pid ${f.pid})`).join(", ")}`);
+  for (const f of found) { try { process.kill(f.pid, "SIGTERM"); } catch { /* gone */ } }
+  for (let i = 0; i < 40 && found.some((f) => alive(f.pid)); i++) await sleep(250);
+  for (const f of found.filter((f) => alive(f.pid))) { try { process.kill(f.pid, "SIGKILL"); } catch { /* gone */ } }
+  await sleep(500);
+}
+const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
 // ---------------------------------------------------------------------------------------------- helpers
 function start(label, cmd, argv, env = {}) {
@@ -126,6 +165,7 @@ process.on("SIGTERM", () => shutdown(0));
 await tools();
 if (stopping) await sleep(1e9);
 
+await stopLeftovers();
 say("starting the FeltKit app…");
 start("app", process.execPath, [join(PROJECT_DIR, "node_modules", "@feltdb", "feltkit", "bin", "feltkit.js"), "dev", ...(opt("--port") ? ["--port", opt("--port")] : [])]);
 const url = await appUrl();
