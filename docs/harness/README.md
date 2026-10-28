@@ -19,9 +19,9 @@ harness/
   preflight/        the release gate of a course version (npm run courses:preflight)
   courses/          course library on disk, digests, validation/pinning, fixture cache
 courses/
-  course-000-calibration/v1/   tiny Rust crate, real off-by-one defect; DECLARATIVE acceptance (no evaluator/),
+  course-000-calibration/v2/   tiny Rust crate, real off-by-one defect; DECLARATIVE acceptance (no evaluator/),
                                public acceptance tests required unchanged, reference fix in reference/ (PAX can verify)
-  course-001-ddmrv/v1/         T4 resolver defect on appport@268c9b4 (Discover, Diagnose, Modify, Recover, Verify);
+  course-001-ddmrv/v2/         T4 resolver defect on appport@268c9b4 (Discover, Diagnose, Modify, Recover, Verify);
                                PRIVATE evaluator (hidden test + reference from stack-agent, PROVENANCE.json)
   <course>/<version>/preflight.json   the passing preflight report the seed script publishes with course.json
 ```
@@ -55,15 +55,15 @@ npm run harness:start                                 # long-running dispatcher 
 
 # Launch runs from the UI (Configure → Launch), or scripted:
 node scripts/harness-e2e.mjs --app $FELTKIT_URL --key-file .harness/harness-api-key \
-  --run "course-000-calibration@v1=reference-control" \
-  --run "course-000-calibration@v1=stack-agent:model=qwen2.5-coder-3b,endpoint=http://127.0.0.1:8080,obstacles=transient-test-failure" \
+  --run "course-000-calibration@v2=reference-control" \
+  --run "course-000-calibration@v2=stack-agent:model=qwen2.5-coder-3b,endpoint=http://127.0.0.1:8080,obstacles=transient-test-failure" \
   --evidence-dir docs/harness/runs
 
 # Stop
 npm run harness:model:stop; npm run harness:authority:stop
 ```
 
-Without the app (calibration, debugging): `npm run harness:run -- --course course-000-calibration/v1 --adapter
+Without the app (calibration, debugging): `npm run harness:run -- --course course-000-calibration/v2 --adapter
 reference-control [--durable] [--evidence docs/harness/runs/x.json]` runs the same stages with a local sink
 (result in the run directory); `--durable` also goes through the real work authority. `null-control` (the
 unchanged base) is a harness-only control; the app's experiment form does not offer it.
@@ -87,8 +87,8 @@ required evidence captured, evaluator isolated and tamper-evident, cleanup works
 
 | Course | Preflight baseline (unchanged fixture) | Preflight reference |
 | --- | --- | --- |
-| course-000-calibration/v1 (declarative) | FAIL: unit tests 1 passed / 1 failed, acceptance tests 1 / 2 | PASS: 2 / 0 and 3 / 0, every check passed |
-| course-001-ddmrv/v1 (private, T4) | FAIL: hidden acceptance 2 passed / 6 failed, regression 1660 passed | PASS: hidden 8 / 0, regression 1660 passed |
+| course-000-calibration/v2 (declarative) | FAIL: unit tests 1 passed / 1 failed, acceptance tests 1 / 2 | PASS: 2 / 0 and 3 / 0, every check passed |
+| course-001-ddmrv/v2 (private, T4) | FAIL: hidden acceptance 2 passed / 6 failed, regression 1660 passed | PASS: hidden 8 / 0, regression 1660 passed |
 
 ### Environment
 

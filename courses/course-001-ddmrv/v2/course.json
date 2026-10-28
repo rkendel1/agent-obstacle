@@ -2,7 +2,7 @@
   "schema": "aoc.course.v1",
   "identity": {
     "id": "course-001-ddmrv",
-    "version": "v1",
+    "version": "v2",
     "name": "DDMRV: AppPort resolver across capability versions",
     "description": "Discover, Diagnose, Modify, Recover, Verify on a real repository defect: AppPort @ 268c9b4 resolves a requirement against only the lowest version a provider serves. The coding-benchmark-v1 T4 fixture (Stack-Agent repository), with a transient test-infrastructure failure as the default obstacle.",
     "status": "published",

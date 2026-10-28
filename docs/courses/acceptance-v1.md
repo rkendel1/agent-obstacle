@@ -112,8 +112,8 @@ assertions) stays on the harness host — the app receives exit, counts and the 
 ## 4. Preflight: the release gate
 
 ```bash
-npm run courses:preflight -- course-000-calibration/v1     # writes courses/course-000-calibration/v1/preflight.json
-npm run courses:preflight -- course-001-ddmrv/v1 --out /tmp/t4.json   # or --no-write
+npm run courses:preflight -- course-000-calibration/v2     # writes courses/course-000-calibration/v2/preflight.json
+npm run courses:preflight -- course-001-ddmrv/v2 --out /tmp/t4.json   # or --no-write
 ```
 
 Preflight runs the real stage pipeline twice (the unchanged fixture with `null-control`, the reference with
@@ -162,8 +162,8 @@ fixtures exclude `node_modules` from the digest).
 
 | Course | Evaluator | Preflight (baseline → reference) |
 | --- | --- | --- |
-| `course-000-calibration/v1` | declarative (no `evaluator/`): `cargo test --lib` (≥ 2 passed, 0 failed), `cargo test --test inclusive_ranges` (exactly 3 passed), invariants on the tests/manifest, documentation and API content checks, an output check | unit tests 1/2 and acceptance tests 1/3 at the base (FAIL); 2/2 and 3/3 with the reference (PASS) |
-| `course-001-ddmrv/v1` (T4) | private (`evaluator/`, stack-agent T4 files, `PROVENANCE.json`) | hidden acceptance 2/8, regression 1660 passed at the base (FAIL; one rerun only if just the known-flaky integration-e2e fails); 8/8 and regression pass with the reference (PASS) |
+| `course-000-calibration/v2` | declarative (no `evaluator/`): `cargo test --lib` (≥ 2 passed, 0 failed), `cargo test --test inclusive_ranges` (exactly 3 passed), invariants on the tests/manifest, documentation and API content checks, an output check | unit tests 1/2 and acceptance tests 1/3 at the base (FAIL); 2/2 and 3/3 with the reference (PASS) |
+| `course-001-ddmrv/v2` (T4) | private (`evaluator/`, stack-agent T4 files, `PROVENANCE.json`) | hidden acceptance 2/8, regression 1660 passed at the base (FAIL; one rerun only if just the known-flaky integration-e2e fails); 8/8 and regression pass with the reference (PASS) |
 
 Course-000 became declarative by moving its acceptance tests into the public fixture
 (`tests/inclusive_ranges.rs`, required unchanged) instead of a hidden test; its reference fix moved to

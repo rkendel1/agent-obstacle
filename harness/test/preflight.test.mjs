@@ -13,7 +13,7 @@ const gate = (r, id) => r.gates.find((g) => g.id === id);
 
 test('course-000 (declarative) passes every preflight gate; the report is bound to its digest and evaluator', async (t) => {
   const root = await isolate(t);
-  const c = loadCourseRef('course-000-calibration/v1');
+  const c = loadCourseRef('course-000-calibration/v2');
   const r = await preflight(c, { workRoot: join(root, 'pf') });
   assert.deepEqual(r.gates.map((g) => [g.id, g.result]), GATES.map((g) => [g, 'pass']));
   assert.equal(r.result, 'pass');

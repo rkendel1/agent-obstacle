@@ -13,7 +13,7 @@ import { paxObserve, paxTest } from '../evidence/index.mjs';
 import { run } from '../lib/proc.mjs';
 import { readJSONL } from '../lib/util.mjs';
 
-const course = loadCourseRef('course-000-calibration/v1');
+const course = loadCourseRef('course-000-calibration/v2');
 const direct = (runId, adapter, adapters = ADAPTERS, { c = course, coursesRoot, ...extra } = {}) => runDirect({ runId, input: pendingRun({ runId, course: c, adapter, ...extra }), adapters, coursesRoot });
 const REF = join(course.dir, 'reference/fix.diff');
 

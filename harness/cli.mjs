@@ -2,7 +2,7 @@
 // Harness entry points.
 //   npm run harness:start                  dispatcher + worker loop against the app (AOC_APP_URL, AOC_HARNESS_API_KEY)
 //   npm run harness:once                   same, until nothing is pending/running (tests, cron)
-//   npm run harness:run -- --course course-000-calibration/v1 --adapter reference-control [options]
+//   npm run harness:run -- --course course-000-calibration/v2 --adapter reference-control [options]
 //                                          one run WITHOUT the app (local sink), optionally --durable (real work authority)
 //   npm run harness:clean -- [--runs] [--fixtures]
 //
@@ -71,7 +71,7 @@ export function runSummary(runDir, extra = {}) {
 }
 
 async function runLocal() {
-  const course = loadCourseRef(opt('course', 'course-000-calibration/v1'));
+  const course = loadCourseRef(opt('course', 'course-000-calibration/v2'));
   const adapter = opt('adapter', 'reference-control');
   const rec = course.doc.meta?.recommendedBudgets ?? { maxTurns: 12, maxExecutions: 10, deadlineSecs: 900, callTimeoutSecs: 300 };
   const budgets = {

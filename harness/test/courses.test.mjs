@@ -14,7 +14,7 @@ test('canonical JSON sorts keys recursively and drops undefined', () => {
 
 test('both v1 courses are valid, pinned, declare their evaluator explicitly, and carry every required section', () => {
   const courses = listCourses();
-  assert.deepEqual(courses.map((c) => `${c.id}/${c.version}`), ['course-000-calibration/v1', 'course-001-ddmrv/v1']);
+  assert.deepEqual(courses.map((c) => `${c.id}/${c.version}`), ['course-000-calibration/v2', 'course-001-ddmrv/v2']);
   for (const c of courses) {
     assert.deepEqual(validateCourse(c), [], `${c.id} problems`);
     for (const s of REQUIRED_SECTIONS) assert.ok(c.doc[s] !== undefined, `${c.id} has ${s}`);

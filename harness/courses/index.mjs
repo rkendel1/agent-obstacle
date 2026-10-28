@@ -50,10 +50,15 @@ export function loadCourse(courseId, version, root = COURSES_DIR) {
   return loadCourseDir(dir);
 }
 
-/** "course-000-calibration/v1" or "course-000-calibration@v1" */
+/** "course-000-calibration/v2" or "course-000-calibration@v2"; a bare id means its latest version. */
 export function loadCourseRef(ref, root = COURSES_DIR) {
   const [id, v] = ref.split(/[/@]/);
-  return loadCourse(id, v ?? 'v1', root);
+  return loadCourse(id, v ?? latestVersion(id, root), root);
+}
+
+function latestVersion(id, root) {
+  const versions = existsSync(join(root, id)) ? readdirSync(join(root, id)).filter((d) => /^v\d+$/.test(d)) : [];
+  return versions.sort((a, b) => Number(b.slice(1)) - Number(a.slice(1)))[0] ?? 'v1';
 }
 
 export function findCourseByDigest(digest, root = COURSES_DIR) {

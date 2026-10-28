@@ -80,7 +80,7 @@ test("acceptance.v1 is validated at publish: unknown kinds or fields, unapproved
     await assert.rejects(draft(sampleCourse({ version: "0.9.2", evaluator: { kind: "magic" } })), problem(/evaluator.kind must be one of/));
     await assert.rejects(draft(sampleCourse({ version: "0.9.3", evaluator: { kind: "private", dir: "evaluator", version: "1" } })), problem(/evaluator.digest must pin/));
     // the shipped course documents are valid for the app as they are
-    for (const f of ["courses/course-000-calibration/v1/course.json", "courses/course-001-ddmrv/v1/course.json"]) {
+    for (const f of ["courses/course-000-calibration/v2/course.json", "courses/course-001-ddmrv/v2/course.json"]) {
       const doc = JSON.parse(readFileSync(f, "utf8"));
       const d = await grace.mutation(api.courses.createDraft, { spec: doc });
       await grace.mutation(api.courses.discardDraft, { courseVersionId: d.courseVersionId });

@@ -54,7 +54,7 @@ npm run harness:model:start -- --model 3b                # llama-cpp-python + mo
 npm run harness:key -- --out .harness/harness-api-key    # with the app running
 AOC_APP_URL=http://127.0.0.1:3000 AOC_HARNESS_API_KEY=$(cat .harness/harness-api-key) npm run harness:start
 npm run harness:test                                     # harness unit + Durable Work tests
-npm run harness:run -- --course course-000-calibration/v1 --adapter reference-control   # one run without the app
+npm run harness:run -- --course course-000-calibration/v2 --adapter reference-control   # one run without the app
 ```
 
 <!-- /HARNESS -->

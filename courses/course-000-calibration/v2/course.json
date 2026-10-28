@@ -2,7 +2,7 @@
   "schema": "aoc.course.v1",
   "identity": {
     "id": "course-000-calibration",
-    "version": "v1",
+    "version": "v2",
     "name": "Calibration: inclusive range length",
     "description": "A tiny self-contained Rust crate with one real off-by-one defect. Deterministic, seconds to evaluate, and PAX 0.5.0 supports cargo, so an agent CAN verify its own fix here. Its acceptance is fully declarative (acceptance.v1): no private evaluator. Used to calibrate the harness, the evaluator and an agent's basic loop before harder courses.",
     "status": "published",
@@ -357,7 +357,7 @@
       "maxOutputTokens": 1024
     },
     "notes": [
-      "A reference-control run must PASS and an unchanged workspace must FAIL; `npm run courses:preflight -- course-000-calibration/v1` checks both (and more) and writes preflight.json, which publishing requires."
+      "A reference-control run must PASS and an unchanged workspace must FAIL; `npm run courses:preflight -- course-000-calibration/v2` checks both (and more) and writes preflight.json, which publishing requires."
     ],
     "fixtureDeterministic": true,
     "skills": [

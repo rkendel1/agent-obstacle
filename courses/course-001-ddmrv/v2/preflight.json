@@ -2,8 +2,8 @@
   "schema": "aoc.preflight.v1",
   "course": {
     "id": "course-001-ddmrv",
-    "version": "v1",
-    "digest": "sha256:ed3a3aa1d291c8c807f025c5d73945f7ab9177739d0a46b9a68107f256a21d58"
+    "version": "v2",
+    "digest": "sha256:3ff83d5efadd36f3bf87162a0b9a95276a978bc10f009f3245b10a206dd322a9"
   },
   "evaluator": {
     "kind": "private",
@@ -219,6 +219,6 @@
       }
     }
   ],
-  "startedAt": "2026-10-28T18:07:18.237Z",
-  "completedAt": "2026-10-28T18:10:51.658Z"
+  "startedAt": "2026-10-28T18:12:25.436Z",
+  "completedAt": "2026-10-28T18:14:13.846Z"
 }

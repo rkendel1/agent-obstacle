@@ -19,7 +19,7 @@ import { spawnGroup, groupAlive, terminateGroup } from '../lib/proc.mjs';
 import { sleep, readJSONL } from '../lib/util.mjs';
 import { REPO_ROOT } from '../lib/paths.mjs';
 
-const course = loadCourseRef('course-000-calibration/v1');
+const course = loadCourseRef('course-000-calibration/v2');
 const quiet = () => {};
 let A;   // authority (shared by the tests in this file)
 let ROOT;

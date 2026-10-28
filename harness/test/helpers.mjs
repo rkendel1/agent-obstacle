@@ -116,12 +116,12 @@ export async function startFakeOpenAI(t, { replies = [], stream = false, usage =
 }
 
 /**
- * A copy of course-000-calibration/v1 (declarative) at <root>/<id>/v1 with `mutate(doc, dir)`
+ * A copy of course-000-calibration/v2 (declarative) at <root>/<id>/v2 with `mutate(doc, dir)`
  * applied and its pins refreshed. Course variants live outside courses/, so nothing publishes them.
  */
 export function courseVariant(root, id, mutate = () => {}) {
-  const dir = join(root, id, 'v1');
-  cpSync(join(COURSES_DIR, 'course-000-calibration/v1'), dir, { recursive: true, filter: (src) => !src.endsWith('preflight.json') });
+  const dir = join(root, id, 'v2');
+  cpSync(join(COURSES_DIR, 'course-000-calibration/v2'), dir, { recursive: true, filter: (src) => !src.endsWith('preflight.json') });
   const doc = JSON.parse(readFileSync(join(dir, 'course.json'), 'utf8'));
   doc.identity.id = id;
   mutate(doc, dir);

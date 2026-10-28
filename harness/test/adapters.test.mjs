@@ -24,7 +24,7 @@ const { runDirect } = await import('../worker/direct.mjs');
 const { agentEnv, DENY } = await import('../agents/adapter.mjs');
 const { extractDiff, keywords } = await import('../agents/patch-agent.mjs');
 
-const course = loadCourseRef('course-000-calibration/v1');
+const course = loadCourseRef('course-000-calibration/v2');
 const FIX = readFileSync(new URL('./fixtures/course-000-stack-agent-fix.script', import.meta.url), 'utf8').trim().split('\n');
 const model = (url, extra = {}) => ({ provider: 'openai-compatible', model: 'scripted', endpoint: url, ...extra });
 const walk = (d) => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
