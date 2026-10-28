@@ -1,0 +1,299 @@
+{
+  "schema": "aoc.course.v1",
+  "identity": {
+    "courseId": "course-001-ddmrv",
+    "version": "v1",
+    "title": "DDMRV: AppPort resolver across capability versions",
+    "summary": "Discover, Diagnose, Modify, Recover, Verify on a real repository defect: AppPort @ 268c9b4 resolves a requirement against only the lowest version a provider serves. The coding-benchmark-v1 T4 fixture (Stack-Agent repository), with a transient test-infrastructure failure as the default obstacle.",
+    "status": "published",
+    "createdAt": "2026-10-28",
+    "authors": [
+      "aoc-harness"
+    ]
+  },
+  "objective": {
+    "kind": "change",
+    "goal": "AppPort dependency resolution across capability versions (TypeScript, pnpm, vitest). Make application dependency resolution correct for providers that serve more than one version of the same capability, as the specification allows.\nProblem: a provider application registers invoice.create at version 1 and version 2. A consumer requires invoice.create with version constraint \"2\" (or \"^2\"). Resolution reports it unresolved or incompatible, saying the provider's version 1 does not satisfy the constraint, though that provider offers version 2. Open-ended constraints such as \">=1\" resolve, but not to the version users expect from the resolver's documented selection rule. A requirement for exactly version 1 works.\nRequirements: read spec/appport-1.0.md, spec/dependencies-1.md and the core resolver and registry first. Reproduce the failure against the starting commit with a test that fails there. Fix the responsible layer so compatibility, provider-pinned resolution and resolution across several candidate providers agree on which provided version satisfies a requirement. Keep the existing selection rules between providers (lifecycle preference, the ambiguous outcome) and result shapes. Add regression tests through the public @appport/core API. No manifest, wire-protocol or public API changes; no unrelated refactors.\nAcceptance: a provider serving several versions is compatible with a requirement for any version it serves and incompatible when none satisfies it; exact, range and provider-pinned requirements resolve to the version they ask for under the documented selection rule; single-version providers resolve as before; existing suite passes (pnpm test); new tests fail without the fix. Do not commit or push. Report the reproduction and output, root cause, changed files, tests and results, and limitations.",
+    "goalSource": "stack-agent docs/product/coding-benchmark-v1/tasks/T4.goal.txt @ 96fa787 (verbatim, 1,830 bytes; within Stack-Agent's 2,000-byte goal limit)",
+    "publicBrief": "Make dependency resolution correct for providers that serve several versions of one capability."
+  },
+  "environment": {
+    "kind": "local-isolated",
+    "fixture": {
+      "type": "git",
+      "repository": "https://github.com/rkendel1/appport.git",
+      "commit": "268c9b46a71a5f2b4aea86d6c73a4a4371958f1f",
+      "history": "stripped: detached base, no branches/remotes/tags, reflog expired, gc --prune=now (prepare-checkout.sh semantics)",
+      "install": [
+        "pnpm",
+        "install",
+        "--frozen-lockfile"
+      ],
+      "cache": "by recipe digest under .harness/fixtures/<digest>",
+      "digest": "75d3e266e89acf39f9cd13071f3b67ff226eef6fc0e6e78a81981494fe821ae1"
+    },
+    "baseCommit": "268c9b46a71a5f2b4aea86d6c73a4a4371958f1f",
+    "ecosystem": "node-pnpm-vitest",
+    "toolchain": {
+      "node": "22.22.0",
+      "pnpm": "10.28.0 (packageManager field says 10.33.0; 10.28 installs the frozen lockfile)",
+      "pax": "0.5.0"
+    },
+    "pax": {
+      "test": "unsupported",
+      "note": "PAX 0.5.0 runs the suite (pax --json test -> pnpm -> vitest, exit 0) but reports status unsupported, reason interpretation-unsupported. A Stack-Agent `change` work can therefore never self-verify (exit 0) on this course. Known PAX gap; the evaluator scores independently."
+    },
+    "network": "needed only by the prepare step (git clone from GitHub); not needed by the agent"
+  },
+  "capabilities": {
+    "catalog": "stack-agent 0.1.0 `work` project capability set (fixed, compiled in)",
+    "available": [
+      "project.list",
+      "project.search",
+      "project.read",
+      "project.write",
+      "project.git.status",
+      "project.git.diff",
+      "project.git.diff_stat",
+      "project.git.log",
+      "project.observe",
+      "pax.test"
+    ],
+    "allowed": [
+      "project.list",
+      "project.search",
+      "project.read",
+      "project.write",
+      "project.git.status",
+      "project.git.diff",
+      "project.git.diff_stat",
+      "project.git.log",
+      "project.observe",
+      "pax.test"
+    ],
+    "enforcement": "Stack-Agent's set is fixed and cannot be extended (no AppPort discovery in `work`); it can only be narrowed to the read-only eight with --kind inspect, which cannot complete a change. The course allows the full set."
+  },
+  "constraints": [
+    {
+      "id": "no-commits",
+      "severity": "critical",
+      "rule": "HEAD stays at the base commit and no refs are created (the goal says: do not commit or push)",
+      "enforcement": "detected",
+      "how": "evaluator compares HEAD and refs with the base; the remote was removed by prepare, so push has no target"
+    },
+    {
+      "id": "no-evaluator-paths",
+      "severity": "critical",
+      "rule": "the hidden acceptance destination must not exist in the workspace",
+      "paths": [
+        "spec/test/resolver-multi-version-acceptance.test.ts"
+      ],
+      "enforcement": "detected",
+      "how": "the evaluator refuses to overwrite it and records the violation"
+    },
+    {
+      "id": "forbidden-paths",
+      "severity": "major",
+      "rule": "do not change the test runner configuration, the lockfile or the workspace manifests",
+      "paths": [
+        "vitest.config.ts",
+        "pnpm-lock.yaml",
+        "pnpm-workspace.yaml",
+        "package.json"
+      ],
+      "enforcement": "detected",
+      "how": "the evaluator inspects the diff against the base; evaluation always uses the pristine fixture plus the agent diff, so ignored files (node_modules) the agent changed do not reach the evaluator"
+    },
+    {
+      "id": "budgets",
+      "severity": "major",
+      "rule": "stay within the experiment's turns, executions and deadline",
+      "enforcement": "enforced",
+      "how": "passed to the agent as flags AND enforced by the harness wall clock (process-group kill at deadline + grace)"
+    },
+    {
+      "id": "workspace-only",
+      "severity": "critical",
+      "rule": "do not write outside the workspace",
+      "enforcement": "partially-detected",
+      "how": "the fixture cache and this course's evaluator directory are digested before/after the agent stage; not a sandbox"
+    },
+    {
+      "id": "no-public-api-change",
+      "severity": "minor",
+      "rule": "no manifest, wire-protocol or public API changes; no unrelated refactors",
+      "enforcement": "not-enforced",
+      "how": "not mechanically decidable; recorded for human review via the diff, not scored"
+    },
+    {
+      "id": "no-network",
+      "severity": "minor",
+      "rule": "the agent does not need the network",
+      "enforcement": "not-enforced",
+      "how": "not scored; proxy settings are not passed to the agent, nothing blocks a direct connection"
+    }
+  ],
+  "obstacles": {
+    "default": [
+      {
+        "id": "transient-test-failure",
+        "type": "transient-test-failure",
+        "params": {
+          "failFirst": 1,
+          "exitCode": 75
+        },
+        "description": "The first `pax test` invocation fails with a clearly labelled transient infrastructure error (exit 75, PAX status error, reason transient-infrastructure-failure); later invocations delegate to the real PAX."
+      }
+    ],
+    "variants": {
+      "interruption": [
+        {
+          "id": "transient-test-failure",
+          "type": "transient-test-failure",
+          "params": {
+            "failFirst": 1,
+            "exitCode": 75
+          }
+        },
+        {
+          "id": "process-interruption",
+          "type": "process-interruption",
+          "params": {
+            "trigger": {
+              "event": "model.call",
+              "count": 3
+            },
+            "relaunch": "same-task-id"
+          },
+          "description": "The harness SIGKILLs the agent's process group after its 3rd model call and relaunches it with the same task id (Stack-Agent resume) once its lease expires."
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "public": "Independent evaluation (run-acceptance.sh T4 semantics) in a fresh copy made from the pristine fixture plus the agent's diff (excluding .stack-agent/): base check (HEAD == 268c9b4), the diff is recorded, pnpm install --frozen-lockfile --prefer-offline, the audit snapshot is recorded but not scored, the regression suite runs excluding spec/test/audit.test.ts, then a hidden acceptance test is copied into spec/test/ and run. PASS needs both. The hidden test and the reference fix are never published or copied into the workspace.",
+    "evaluatorDigest": "f43fe1516e34d0f310d99de268f9446395593f19294b4c3f3840a3728904b69c",
+    "install": [
+      "pnpm",
+      "install",
+      "--frozen-lockfile",
+      "--prefer-offline"
+    ],
+    "recordOnly": [
+      {
+        "id": "audit-snapshot",
+        "command": [
+          "npx",
+          "vitest",
+          "run",
+          "spec/test/audit.test.ts"
+        ],
+        "note": "the audit snapshot lists every test file; adding one makes it drift. Recorded, not scored."
+      }
+    ],
+    "regression": {
+      "command": [
+        "npx",
+        "vitest",
+        "run",
+        "--exclude",
+        "spec/test/audit.test.ts",
+        "--exclude",
+        "**/node_modules/**"
+      ],
+      "knownFlaky": [
+        "spec/test/integration-e2e.test.ts"
+      ],
+      "knownFlakyNote": "freePort() probes then closes a port before the Python provider binds it; under parallel vitest workers another server can take the port and the test sees a different manifest (`tickets.list@1 not declared`). Passed 3/3 at the base on 2026-10-28 (docs/harness/runs/course-001-base-regression-determinism.json). If only known-flaky files fail, the suite is run once more and the rerun is scored (both recorded)."
+    },
+    "hidden": [
+      {
+        "file": "evaluator/acceptance/resolver-multi-version-acceptance.test.ts",
+        "dest": "spec/test/resolver-multi-version-acceptance.test.ts",
+        "command": [
+          "npx",
+          "vitest",
+          "run",
+          "spec/test/resolver-multi-version-acceptance.test.ts"
+        ]
+      }
+    ],
+    "reference": {
+      "file": "evaluator/reference/T4-appport-resolver-versions.diff",
+      "use": "reference-control calibration only; at the base acceptance is 2/8, with the reference 8/8"
+    },
+    "timeoutSecs": 1800
+  },
+  "scoring": {
+    "outcome": "PASS iff regression passes, the hidden acceptance passes and no critical violation completed; FAIL otherwise when the agent ran; BLOCKED when the attempt could not start for reasons outside the agent; ERROR for harness/evaluator faults; CANCELLED when cancelled. The agent's claim never changes the outcome.",
+    "dimensions": [
+      {
+        "id": "discover",
+        "label": "Discover",
+        "measure": "observed (agent report): files listed/searched/read before the first write; null when the adapter does not report it",
+        "weight": 0.5
+      },
+      {
+        "id": "diagnose",
+        "label": "Diagnose",
+        "measure": "observed: the agent ran the suite (pax test, shim log) before its first change; evaluator: the diff touches packages/core/src/resolver.ts (the responsible layer). Informational.",
+        "weight": 0.5
+      },
+      {
+        "id": "modify",
+        "label": "Modify",
+        "measure": "evaluator: hidden acceptance + regression on the agent's diff",
+        "weight": 1
+      },
+      {
+        "id": "recover",
+        "label": "Recover",
+        "measure": "observed: after the injected transient `pax test` failure the agent ran `pax test` again (recognized) and reached a real test result (recovered); after interruption the relaunch resumed the same task",
+        "weight": 0.5
+      },
+      {
+        "id": "verify",
+        "label": "Verify",
+        "measure": "observed: a real test result after the last change. With PAX 0.5.0 this course yields `unsupported`, so the dimension is not observable for PAX-based self-verification and is recorded as null, never estimated",
+        "weight": 0.5
+      }
+    ]
+  },
+  "evidence": {
+    "required": [
+      "pax.observation:before",
+      "pax.observation:after",
+      "pax.test (shim log)",
+      "diff",
+      "process",
+      "agent.report",
+      "acceptance",
+      "digest"
+    ]
+  },
+  "cleanup": {
+    "workspace": "keep",
+    "evaluationCopy": "delete",
+    "agentData": "keep",
+    "note": "workspaces share the pnpm store; node_modules in a workspace is a copy of the cached fixture's (symlinks into .pnpm), ~180 MB per run"
+  },
+  "meta": {
+    "historicalSettings": {
+      "maxTurns": 50,
+      "maxExecutions": 50,
+      "deadlineSecs": 1200,
+      "callTimeoutSecs": 300,
+      "maxOutputTokens": 16384,
+      "source": "stack-agent docs/product/coding-benchmark-v1/runs/2026-10-22-local-models-68965fb/35b/T4-r1/config.txt",
+      "note": "These are the settings of the historical 2026-10-22 experiment, recorded for comparability. They are NOT defaults: an experiment chooses its own budgets."
+    },
+    "historicalResults": "35B local: 3x blocked; 4B: 3x escalated; Opus (stock PAX): solved by the evaluator but exit 4 (oversized write). See docs/integration/stack-agent.md section 11.",
+    "preflight": "at the base acceptance 2/8, with the reference diff 8/8; regression passes with the reference",
+    "provenance": "evaluator/PROVENANCE.json",
+    "deterministic": false,
+    "knownGaps": [
+      "PAX 0.5.0 reports the vitest suite as unsupported (interpretation-unsupported)",
+      "small CPU models are not expected to solve this course"
+    ]
+  }
+}
