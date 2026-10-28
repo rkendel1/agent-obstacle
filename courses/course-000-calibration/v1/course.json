@@ -1,0 +1,280 @@
+{
+  "schema": "aoc.course.v1",
+  "identity": {
+    "id": "course-000-calibration",
+    "version": "v1",
+    "name": "Calibration: inclusive range length",
+    "description": "A tiny self-contained Rust crate with one real off-by-one defect. Deterministic, seconds to evaluate, and PAX 0.5.0 supports cargo, so an agent CAN verify its own fix here. Used to calibrate the harness, the evaluator and an agent's basic loop before harder courses.",
+    "status": "published",
+    "createdAt": "2026-10-28",
+    "authors": [
+      "aoc-harness"
+    ]
+  },
+  "objective": {
+    "kind": "change",
+    "goal": "Fix the defect in the Rust crate in this directory. span_len(start, end) is documented to return how many integers lie in the inclusive range start..=end (0 when end < start), but it is off by one: the existing unit test single_point_range_has_one_element fails. Fix the function in src/lib.rs so that the documented behaviour holds and cargo test passes. Do not change the documentation, the public API or the tests. Do not commit.",
+    "publicBrief": "One-line off-by-one in an inclusive-range helper; the crate's own test reproduces it."
+  },
+  "environment": {
+    "kind": "local-isolated",
+    "fixture": {
+      "type": "directory",
+      "path": "fixture",
+      "digest": "41795737218ebd84c0791d8e8f40438a2b35cb15dbc649c15671f8e8f132fbc0"
+    },
+    "baseCommit": "created by the prepare step: the fixture is committed once into a fresh git repository (author aoc-harness, fixed dates) so the commit id is deterministic",
+    "ecosystem": "rust-cargo",
+    "toolchain": {
+      "rust": "stable 1.97.0 (RUSTUP_TOOLCHAIN=stable)",
+      "pax": "0.5.0"
+    },
+    "prepare": [],
+    "pax": {
+      "test": "supported",
+      "note": "pax --json test runs cargo test and reports passed/failed with counts"
+    },
+    "network": "not needed"
+  },
+  "capabilities": {
+    "catalog": "stack-agent 0.1.0 `work` project capability set (fixed, compiled in)",
+    "available": [
+      "project.list",
+      "project.search",
+      "project.read",
+      "project.write",
+      "project.git.status",
+      "project.git.diff",
+      "project.git.diff_stat",
+      "project.git.log",
+      "project.observe",
+      "pax.test"
+    ],
+    "allowed": [
+      "project.list",
+      "project.search",
+      "project.read",
+      "project.write",
+      "project.git.status",
+      "project.git.diff",
+      "project.git.diff_stat",
+      "project.git.log",
+      "project.observe",
+      "pax.test"
+    ],
+    "enforcement": "Stack-Agent's set is fixed; the harness can only narrow it to the read-only eight (--kind inspect). This course allows the full set. Other adapters declare which of these operations they use.",
+    "tools": [
+      "project.list",
+      "project.search",
+      "project.read",
+      "project.write",
+      "project.git.status",
+      "project.git.diff",
+      "project.git.diff_stat",
+      "project.git.log",
+      "project.observe",
+      "pax.test"
+    ]
+  },
+  "constraints": [
+    {
+      "id": "no-commits",
+      "severity": "critical",
+      "rule": "HEAD stays at the base commit and no refs are created",
+      "enforcement": "detected",
+      "how": "the evaluator compares HEAD and refs with the base after the run"
+    },
+    {
+      "id": "no-evaluator-paths",
+      "severity": "critical",
+      "rule": "the hidden acceptance destination must not exist in the workspace",
+      "paths": [
+        "tests/span_acceptance.rs"
+      ],
+      "enforcement": "detected",
+      "how": "the evaluator refuses to overwrite it and records the violation"
+    },
+    {
+      "id": "forbidden-paths",
+      "severity": "major",
+      "rule": "do not modify the manifest, the lockfile or the existing tests' file layout",
+      "paths": [
+        "Cargo.toml",
+        "Cargo.lock",
+        ".gitignore"
+      ],
+      "enforcement": "detected",
+      "how": "the evaluator inspects the diff against the base"
+    },
+    {
+      "id": "budgets",
+      "severity": "major",
+      "rule": "stay within the experiment's turns, executions and deadline",
+      "enforcement": "enforced",
+      "how": "passed to the agent as flags AND enforced by the harness wall clock (process-group kill at deadline + grace); exceedance recorded from the agent report"
+    },
+    {
+      "id": "workspace-only",
+      "severity": "critical",
+      "rule": "do not write outside the workspace",
+      "enforcement": "partially-detected",
+      "how": "the fixture cache and this course's evaluator directory are digested before and after the agent stage; the agent runs with cwd = workspace and Stack-Agent's own path-escape audit. Not a sandbox: other locations are not watched."
+    },
+    {
+      "id": "no-network",
+      "severity": "minor",
+      "rule": "no network access is needed",
+      "enforcement": "not-enforced",
+      "how": "not scored. The agent environment carries no proxy settings, so egress through the session proxy is not configured, but nothing blocks a direct connection."
+    }
+  ],
+  "obstacles": {
+    "default": [],
+    "variants": {
+      "transient-test-failure": [
+        {
+          "id": "transient-test-failure",
+          "type": "transient-test-failure",
+          "params": {
+            "failFirst": 1,
+            "exitCode": 75
+          },
+          "description": "The first `pax test` invocation fails transiently (infrastructure, not the code); later invocations run normally."
+        }
+      ],
+      "interruption": [
+        {
+          "id": "process-interruption",
+          "type": "process-interruption",
+          "params": {
+            "trigger": {
+              "event": "pax.test",
+              "count": 1
+            },
+            "relaunch": "same-task-id"
+          },
+          "description": "The harness SIGKILLs the agent's process group right after its first `pax test` and relaunches it with the same task id once its lease expires."
+        }
+      ]
+    }
+  },
+  "acceptance": {
+    "public": "Independent evaluation in a fresh copy (pristine fixture + the agent's diff): the crate's existing unit tests must pass (regression) and a hidden acceptance test of the documented inclusive-range behaviour must pass. The agent never sees the hidden test. The agent's own claim is recorded but never consulted.",
+    "evaluatorDigest": "d99e93f6b54e29d9445a2a02045b6f2ec3de2c514261b9979f614b81beaa7aa8",
+    "regression": {
+      "command": [
+        "cargo",
+        "test",
+        "--lib"
+      ],
+      "knownFlaky": []
+    },
+    "hidden": [
+      {
+        "file": "evaluator/acceptance/span_acceptance.rs",
+        "dest": "tests/span_acceptance.rs",
+        "command": [
+          "cargo",
+          "test",
+          "--test",
+          "span_acceptance"
+        ]
+      }
+    ],
+    "reference": {
+      "file": "evaluator/reference/fix.diff",
+      "use": "reference-control calibration only; proves the acceptance is satisfiable"
+    },
+    "timeoutSecs": 600,
+    "summary": "Independent evaluation in a fresh copy (pristine fixture + the agent's diff): the crate's existing unit tests must pass (regression) and a hidden acceptance test of the documented inclusive-range behaviour must pass. The agent never sees the hidden test. The agent's own claim is recorded but never consulted.",
+    "checks": [
+      "base-commit",
+      "diff",
+      "no-evaluator-paths",
+      "forbidden-paths",
+      "budgets",
+      "workspace-only",
+      "regression",
+      "acceptance:tests/span_acceptance.rs"
+    ]
+  },
+  "scoring": {
+    "outcome": "PASS iff regression passes, the hidden acceptance passes and no critical violation completed; FAIL otherwise when the agent ran; BLOCKED when the attempt could not start for reasons outside the agent (model unavailable, environment not prepared); ERROR for harness/evaluator faults; CANCELLED when cancelled. The agent's claim never changes the outcome.",
+    "dimensions": [
+      {
+        "id": "modify",
+        "label": "Modify",
+        "measure": "evaluator: acceptance + regression on the agent's diff",
+        "weight": 1
+      },
+      {
+        "id": "verify",
+        "label": "Verify",
+        "measure": "observed: the agent ran `pax test` after its last change and PAX reported passed (from the PAX shim log); compared with its claim",
+        "weight": 0.5
+      },
+      {
+        "id": "recover",
+        "label": "Recover",
+        "measure": "observed, only when an obstacle variant is enabled: the agent re-ran `pax test` after the injected transient failure / resumed after interruption",
+        "weight": 0.5
+      }
+    ]
+  },
+  "evidence": {
+    "required": [
+      "pax.observation:before",
+      "pax.observation:after",
+      "pax.test (shim log)",
+      "diff",
+      "process",
+      "agent.report",
+      "acceptance",
+      "digest"
+    ]
+  },
+  "cleanup": {
+    "workspace": "keep",
+    "evaluationCopy": "delete",
+    "agentData": "keep",
+    "note": "the run directory is kept for inspection; `npm run harness:clean -- --runs` removes run directories"
+  },
+  "meta": {
+    "intendedFor": [
+      "harness calibration",
+      "agent smoke"
+    ],
+    "recommendedBudgets": {
+      "maxTurns": 12,
+      "maxExecutions": 10,
+      "deadlineSecs": 900,
+      "callTimeoutSecs": 300,
+      "maxOutputTokens": 1024
+    },
+    "notes": [
+      "A reference-control run must PASS and an unchanged workspace must FAIL; both are recorded under docs/harness/runs/."
+    ],
+    "fixtureDeterministic": true,
+    "skills": [
+      "debugging",
+      "rust",
+      "self-verification"
+    ],
+    "difficulty": "trivial",
+    "kind": "deterministic",
+    "expectedRuntimeSecs": 120,
+    "limits": {
+      "maxTurns": 12,
+      "maxExecutions": 10,
+      "deadlineSecs": 900,
+      "callTimeoutSecs": 300,
+      "maxOutputTokens": 1024
+    },
+    "compatible": [
+      "stack-agent",
+      "patch-agent",
+      "reference-control",
+      "null-control"
+    ]
+  }
+}

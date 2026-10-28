@@ -1,0 +1,234 @@
+{
+  "recordedAt": "2026-10-28T16:53:20.593Z",
+  "mode": "end-to-end through the real FeltKit app (AppPort, harness API key) + Durable Work on feltdb-server 0.3.0",
+  "app": "http://127.0.0.1:3100",
+  "runId": "mvscr9dx96f4fdf8f549",
+  "course": "course-000-calibration@v1",
+  "adapter": "reference-control",
+  "appRunState": "terminal",
+  "appOutcome": "PASS",
+  "workloadId": "workload_94fe3ec06472e737a2700481",
+  "result": {
+    "runId": "mvscr9dx96f4fdf8f549",
+    "workloadId": "workload_94fe3ec06472e737a2700481",
+    "outcome": "PASS",
+    "claims": {
+      "agentTerminalState": "control:reference-applied",
+      "summary": "control (not an agent): applied the course reference fix evaluator/reference/fix.diff"
+    },
+    "observed": {
+      "exitCode": 0,
+      "durationMs": 6,
+      "timedOut": false
+    },
+    "evaluation": {
+      "evaluatorVersion": "@aoc/evaluator@1.0.0+f10f3dbabccf",
+      "acceptance": "pass",
+      "regression": "pass",
+      "checks": [
+        {
+          "id": "base-commit",
+          "result": "pass",
+          "detail": "HEAD 48db082123af (base 48db082123af)"
+        },
+        {
+          "id": "diff",
+          "result": "pass",
+          "detail": "1 file(s) changed: M src/lib.rs"
+        },
+        {
+          "id": "no-evaluator-paths",
+          "result": "pass"
+        },
+        {
+          "id": "forbidden-paths",
+          "result": "pass"
+        },
+        {
+          "id": "budgets",
+          "result": "pass"
+        },
+        {
+          "id": "workspace-only",
+          "result": "pass",
+          "detail": "watched: fixture, evaluator"
+        },
+        {
+          "id": "regression",
+          "result": "pass",
+          "detail": "exit 0; passed 2, failed 0"
+        },
+        {
+          "id": "acceptance:tests/span_acceptance.rs",
+          "result": "pass",
+          "detail": "exit 0; passed 3, failed 0"
+        }
+      ],
+      "violations": []
+    },
+    "metrics": {
+      "agentDurationMs": 6,
+      "turns": null,
+      "executions": null,
+      "modelCallsReported": null,
+      "modelCallsObserved": null,
+      "inputTokensReported": null,
+      "outputTokensReported": null,
+      "promptTokensObserved": null,
+      "completionTokensObserved": null,
+      "paxTestsObserved": 0,
+      "paxTestsInjected": 0,
+      "filesChanged": 1,
+      "modelFailures": null,
+      "malformedReplies": null,
+      "interruptions": null,
+      "evaluationMs": 529,
+      "attempts": 1
+    },
+    "recovery": [],
+    "reproducibility": {
+      "courseDigest": "sha256:6a30c53b2b903460a88df9f70b5210b24cf64e0c2a4c1862ffcbe5269021878c",
+      "fixtureDigest": "sha256:41795737218ebd84c0791d8e8f40438a2b35cb15dbc649c15671f8e8f132fbc0",
+      "finalTreeDigest": "sha256:9575747a90ed8c584cd6b4afadadce685d8242a9de3bd6a5a8cec43aa8fad34e",
+      "experimentDigest": "sha256:7520d5644e5a202a8e5de6e3d5e49ccfea59e310a95b1b8ffa84296f90f9764e",
+      "agentVersion": "reference-control control-1",
+      "paxVersion": "pax 0.5.0",
+      "evaluatorVersion": "@aoc/evaluator@1.0.0+f10f3dbabccf",
+      "workAuthorityRelease": "feltdb-server 0.3.0",
+      "deterministic": true,
+      "note": "reference-control is a CONTROL, not an agent: it calibrates the harness and evaluator."
+    },
+    "startedAt": "2026-10-28T16:52:23.732Z",
+    "completedAt": "2026-10-28T16:52:28.867Z"
+  },
+  "eventsFromApp": {
+    "count": 36,
+    "byKind": {
+      "stage": 15,
+      "environment": 1,
+      "verification": 17,
+      "control": 1,
+      "claim": 1,
+      "file.change": 1
+    },
+    "notable": [
+      {
+        "seq": 13,
+        "source": "agent",
+        "kind": "claim",
+        "summary": "control claims: control:reference-applied; verified=n/a"
+      },
+      {
+        "seq": 23,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "base-commit: pass — HEAD 48db082123af (base 48db082123af)"
+      },
+      {
+        "seq": 24,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "diff: pass — 1 file(s) changed: M src/lib.rs"
+      },
+      {
+        "seq": 25,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "no-evaluator-paths: pass"
+      },
+      {
+        "seq": 26,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "forbidden-paths: pass"
+      },
+      {
+        "seq": 27,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "budgets: pass"
+      },
+      {
+        "seq": 28,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "workspace-only: pass — watched: fixture, evaluator"
+      },
+      {
+        "seq": 29,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "regression: pass — exit 0; passed 2, failed 0"
+      },
+      {
+        "seq": 30,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:tests/span_acceptance.rs: pass — exit 0; passed 3, failed 0"
+      },
+      {
+        "seq": 31,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "outcome PASS; the agent's claim was not consulted"
+      }
+    ]
+  },
+  "evidenceFromApp": [
+    {
+      "evidenceId": "digest:prepare",
+      "kind": "digest",
+      "digest": "sha256:c9e26af6d37363d88db23d2276101ac57c4c6757c61e0cf61aee2ffc2bb93caf"
+    },
+    {
+      "evidenceId": "pax.observation:before",
+      "kind": "pax.observation",
+      "digest": "sha256:d7323d792b297ed13d1f9d696f85ba8cbb1e394dc28e18b16e5e9d2aff8ce847"
+    },
+    {
+      "evidenceId": "process:agent",
+      "kind": "process",
+      "digest": "sha256:cb89e9d535e76a0d43a53aa63d9aa9adc8616b095a266e442cada4d28d4370a9"
+    },
+    {
+      "evidenceId": "pax.observation:after",
+      "kind": "pax.observation",
+      "digest": "sha256:305d0812d42e77ea014ff1c218c34befca079c474d5507e7c601e0918407ac63"
+    },
+    {
+      "evidenceId": "diff:agent",
+      "kind": "diff",
+      "digest": "sha256:6c151f79d5b995646dd8e0b54c265f21cddcffa4bb14ba145751dd7aadc99c2d"
+    },
+    {
+      "evidenceId": "log:git-status",
+      "kind": "log",
+      "digest": "sha256:c9d239f6e4adcad839fe12e8c56164929c3e39d881d65905c7e6dda6d35752e9"
+    },
+    {
+      "evidenceId": "digest:final",
+      "kind": "digest",
+      "digest": "sha256:0827b1db7a8e2505ee529570e076afbd1f318b797e0f62f0d3898192c9c6441b"
+    },
+    {
+      "evidenceId": "acceptance:verdict",
+      "kind": "acceptance",
+      "digest": "sha256:6f1302505cd99944c5af2fc6861af1796460cad60db3d45469beb218f7b7159a"
+    },
+    {
+      "evidenceId": "acceptance:regression",
+      "kind": "acceptance",
+      "digest": "sha256:b483948d31d50bbba2bb70ce7a07fb163c30b032a3b041f7ccccc2a46bff4a1b"
+    },
+    {
+      "evidenceId": "acceptance:acceptance-tests_span_acceptance.rs",
+      "kind": "acceptance",
+      "digest": "sha256:889f08222f333695f9ee6a3d355db2d98386098e70c8fa3d403aaa1c79abfe03"
+    },
+    {
+      "evidenceId": "log:run-result",
+      "kind": "log",
+      "digest": "sha256:755ac877d1602680188adb35065ff8c2c7ccf35cc5bf3bc62dfed502789fc47c"
+    }
+  ]
+}

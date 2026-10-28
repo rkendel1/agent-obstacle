@@ -195,3 +195,36 @@ accepted and compared): `modelCalls`, `toolExecutions`, `turns`, `inputTokens`, 
   `attempted`; `reproducibility.evaluatorVersion !== evaluation.evaluatorVersion`; a recovery entry recognized or
   recovered but not injected. Also refused: `workloadId` not the bound one, `courseDigest`/`experimentDigest` not the
   run's, `completedAt < startedAt`, result > 256 KiB. The identical result again → `ok`.
+
+## Harness-side notes (harness v1.0) — what the client does
+
+Added by the harness (`harness/`); nothing above is changed.
+
+- **Course resolution.** The harness finds the course version to run by `courseDigest` among its local
+  `courses/<id>/<version>/course.json` (digest as above) and cross-checks `courses.version@1`'s `digest`. A run whose
+  digest matches no local course.json ends `ERROR` (`failureClass: "harness"`). It also re-computes the experiment
+  digest over `{ agent, model, budgets, obstacles, environment }` and refuses a mismatch the same way.
+- **Course document conventions the harness reads** (beyond the app's `identity`/`meta`): `objective.goal`,
+  `objective.kind`; `environment.fixture` (`directory` or `git` with `repository`/`commit`/`install`, pinned
+  `digest`); `capabilities.allowed`; `constraints[]` (`id`, `severity`, `enforcement`:
+  `enforced|detected|partially-detected|not-enforced`, `paths`); `obstacles.default[]` and
+  `obstacles.variants.<name>[]` (`type`: `transient-test-failure` | `process-interruption`); `acceptance`
+  (`evaluatorDigest`, `install`, `recordOnly`, `regression.command`/`knownFlaky`, `hidden[]` with `file` under
+  `evaluator/`, `dest`, `command`; `reference.file`); `meta.limits`.
+- **Experiment conventions.** `obstacles: { enabled, overrides?: { variant } }` selects the course default or a
+  named variant. `agent.options` is passed to the adapter (e.g. `leaseSecs`, `structuredOutput`, `temperature`,
+  `maxIterations` for patch-agent). `model.endpoint` is the upstream the per-run harness proxy forwards to;
+  `model.inference.maxTotalTokens` sets the proxy's token budget. `null-control` (the unchanged base) exists only
+  in the harness (`harness:run`); the app's adapters are `stack-agent`, `patch-agent`, `reference-control`.
+- **Reporting.** Stage reports `started|failed` for every stage and `completed` for every stage but `report`
+  (the result is the report stage's completion; the app refuses stage reports after it). Events: `seq` per run,
+  persisted before sending; `source: "harness"` for what the harness observed or did (model calls through its
+  proxy, obstacle injections, recovery), `pax` for PAX observations and the agent's PAX results, `agent` for the
+  agent's claim, `evaluator` for checks. Evidence ids are stable (`pax.observation:before`, `diff:agent`,
+  `acceptance:verdict`, …). `metrics` keys: `agentDurationMs, turns, executions, modelCallsReported,
+  modelCallsObserved, inputTokensReported, outputTokensReported, promptTokensObserved, completionTokensObserved,
+  paxTestsObserved, paxTestsInjected, filesChanged, modelFailures, malformedReplies, interruptions,
+  evaluationMs, attempts` (`null` = not observed). `recovery[]` entries: one per scheduled obstacle, plus
+  `harness-worker-interruption` when a worker fault was injected and the attempt was reclaimed.
+- **Work authority.** `runs.admitted.workAuthority = { url: "http://127.0.0.1:7791", namespace: "aoc",
+  release: "feltdb-server 0.3.0" }`; one workload per run (`definition_id: "aoc.attempt"`, `idempotency_key: runId`).

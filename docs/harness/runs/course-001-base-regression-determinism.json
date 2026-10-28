@@ -1,0 +1,14 @@
+{
+  "recordedAt": "2026-10-28T16:12:00Z",
+  "question": "Is spec/test/integration-e2e.test.ts deterministic at the base appport@268c9b4 under the T4 regression command?",
+  "command": ["npx", "vitest", "run", "--exclude", "spec/test/audit.test.ts", "--exclude", "**/node_modules/**"],
+  "tree": "fresh copy of the prepared fixture (prepare-checkout.sh T4 semantics, pnpm install --frozen-lockfile), no changes",
+  "runs": [
+    { "n": 1, "exit": 0, "secs": 38, "testFiles": "105 passed | 1 skipped (106)", "tests": "1660 passed | 8 skipped (1668)", "integrationE2e": "passed (19 tests | 1 skipped)" },
+    { "n": 2, "exit": 0, "secs": 38, "testFiles": "105 passed | 1 skipped (106)", "tests": "1660 passed | 8 skipped (1668)", "integrationE2e": "passed" },
+    { "n": 3, "exit": 0, "secs": 32, "testFiles": "105 passed | 1 skipped (106)", "tests": "1660 passed | 8 skipped (1668)", "integrationE2e": "passed" }
+  ],
+  "earlierObservation": "one preflight regression run at the base failed spec/test/integration-e2e.test.ts (`tickets.list@1 not declared`) while a `pnpm test` run at the base passed fully",
+  "conclusion": "Not deterministic in general, but passes on a quiet machine (3/3 here). Root cause (from source): spec/test/support/work-order-fixtures.ts freePort() listens on port 0, reads the port and CLOSES the probe before the Python provider binds it; vitest runs test files in parallel, so another file's server can take that port in the gap, and the test then reads a different application's manifest (one that does not declare tickets.list@1). The 5 s start-up wait (100 x 50 ms) is also tight under CPU load (e.g. a local model running).",
+  "evaluatorHandling": "course-001 lists spec/test/integration-e2e.test.ts in acceptance.regression.knownFlaky: if the regression fails and every failing file is known-flaky, the suite is run once more and the rerun is scored; both runs are recorded as evidence. This mirrors run-acceptance.sh's rerun rule (which in the upstream script only parses cargo output)."
+}

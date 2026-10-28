@@ -1,0 +1,36 @@
+{
+  "schema": "aoc.provenance.v1",
+  "note": "Evaluator-only files copied verbatim from the Stack-Agent repository coding-benchmark-v1 (task T4). Never published to the app, never copied into an agent workspace. upstream/*.sh are kept for provenance; the harness evaluator re-implements run-acceptance.sh semantics (harness/evaluator) so that .stack-agent/ is excluded and the agent tree cannot influence the evaluator.",
+  "source": {
+    "repository": "https://github.com/rkendel1/stack-agent (local checkout /home/user/stack-agent)",
+    "commit": "96fa787230556eea81d158d9c31f0ecc19d127a0",
+    "copiedAt": "2026-10-28"
+  },
+  "files": [
+    {
+      "path": "acceptance/resolver-multi-version-acceptance.test.ts",
+      "sourcePath": "docs/product/coding-benchmark-v1/evaluator/acceptance/resolver-multi-version-acceptance.test.ts",
+      "sha256": "38d2f8f66da81b824ae8130d4d0b2938a38962c8b7a5839bdeb2c08b4ef2e806"
+    },
+    {
+      "path": "reference/T4-appport-resolver-versions.diff",
+      "sourcePath": "docs/product/coding-benchmark-v1/evaluator/reference/T4-appport-resolver-versions.diff",
+      "sha256": "0a63c2887196006c65ef497fe165bba8f1104404ca4893f828021caabb4264fc"
+    },
+    {
+      "path": "upstream/run-acceptance.sh",
+      "sourcePath": "docs/product/coding-benchmark-v1/evaluator/run-acceptance.sh",
+      "sha256": "621f25e4195e9d200a999436946ca5c2c63306d3de5b968d5dd20a725b03e9b9"
+    },
+    {
+      "path": "upstream/prepare-checkout.sh",
+      "sourcePath": "docs/product/coding-benchmark-v1/evaluator/prepare-checkout.sh",
+      "sha256": "2f67300ecffb84b6a78f96d37153f5234412ff1201d47f2b21c48f07e3e361e2"
+    }
+  ],
+  "objectiveSource": {
+    "sourcePath": "docs/product/coding-benchmark-v1/tasks/T4.goal.txt",
+    "sha256": "e4f73a2963e2dccc6de20483a4d69232641a86a654cc5eed6232599185907fc7",
+    "note": "copied verbatim into course.json objective.goal (public; it is the agent brief)"
+  }
+}
