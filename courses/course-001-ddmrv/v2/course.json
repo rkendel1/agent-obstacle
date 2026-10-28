@@ -2,7 +2,7 @@
   "schema": "aoc.course.v1",
   "identity": {
     "id": "course-001-ddmrv",
-    "version": "v1",
+    "version": "v2",
     "name": "DDMRV: AppPort resolver across capability versions",
     "description": "Discover, Diagnose, Modify, Recover, Verify on a real repository defect: AppPort @ 268c9b4 resolves a requirement against only the lowest version a provider serves. The coding-benchmark-v1 T4 fixture (Stack-Agent repository), with a transient test-infrastructure failure as the default obstacle.",
     "status": "published",
@@ -128,7 +128,7 @@
       "severity": "critical",
       "rule": "do not write outside the workspace",
       "enforcement": "partially-detected",
-      "how": "the fixture cache and this course's evaluator directory are digested before/after the agent stage; not a sandbox"
+      "how": "the fixture cache, this course's directory (document, private evaluator) and the evaluator's own code are digested before/after the agent stage; not a sandbox"
     },
     {
       "id": "no-public-api-change",
@@ -182,9 +182,19 @@
       ]
     }
   },
+  "evaluator": {
+    "kind": "private",
+    "dir": "evaluator",
+    "version": "t4-run-acceptance 1.0.0",
+    "digest": "f43fe1516e34d0f310d99de268f9446395593f19294b4c3f3840a3728904b69c",
+    "reference": {
+      "file": "evaluator/reference/T4-appport-resolver-versions.diff"
+    },
+    "provenance": "evaluator/PROVENANCE.json (stack-agent coding-benchmark-v1 T4 @ 96fa787)"
+  },
   "acceptance": {
+    "schema": "aoc.private-acceptance.v1",
     "public": "Independent evaluation (run-acceptance.sh T4 semantics) in a fresh copy made from the pristine fixture plus the agent's diff (excluding .stack-agent/): base check (HEAD == 268c9b4), the diff is recorded, pnpm install --frozen-lockfile --prefer-offline, the audit snapshot is recorded but not scored, the regression suite runs excluding spec/test/audit.test.ts, then a hidden acceptance test is copied into spec/test/ and run. PASS needs both. The hidden test and the reference fix are never published or copied into the workspace.",
-    "evaluatorDigest": "f43fe1516e34d0f310d99de268f9446395593f19294b4c3f3840a3728904b69c",
     "install": [
       "pnpm",
       "install",
@@ -230,10 +240,6 @@
         ]
       }
     ],
-    "reference": {
-      "file": "evaluator/reference/T4-appport-resolver-versions.diff",
-      "use": "reference-control calibration only; at the base acceptance is 2/8, with the reference 8/8"
-    },
     "timeoutSecs": 1800,
     "summary": "Independent evaluation (run-acceptance.sh T4 semantics) in a fresh copy made from the pristine fixture plus the agent's diff (excluding .stack-agent/): base check (HEAD == 268c9b4), the diff is recorded, pnpm install --frozen-lockfile --prefer-offline, the audit snapshot is recorded but not scored, the regression suite runs excluding spec/test/audit.test.ts, then a hidden acceptance test is copied into spec/test/ and run. PASS needs both. The hidden test and the reference fix are never published or copied into the workspace.",
     "checks": [
@@ -245,7 +251,35 @@
       "workspace-only",
       "regression",
       "acceptance:spec/test/resolver-multi-version-acceptance.test.ts"
-    ]
+    ],
+    "toolchain": [
+      "pnpm",
+      "npx"
+    ],
+    "preflight": {
+      "baseline": {
+        "mustFail": [
+          "acceptance:spec/test/resolver-multi-version-acceptance.test.ts"
+        ],
+        "mustPass": [
+          "regression"
+        ],
+        "counts": {
+          "acceptance:spec/test/resolver-multi-version-acceptance.test.ts": {
+            "passed": 2,
+            "failed": 6
+          }
+        }
+      },
+      "reference": {
+        "counts": {
+          "acceptance:spec/test/resolver-multi-version-acceptance.test.ts": {
+            "passed": 8,
+            "failed": 0
+          }
+        }
+      }
+    }
   },
   "scoring": {
     "outcome": "PASS iff regression passes, the hidden acceptance passes and no critical violation completed; FAIL otherwise when the agent ran; BLOCKED when the attempt could not start for reasons outside the agent; ERROR for harness/evaluator faults; CANCELLED when cancelled. The agent's claim never changes the outcome.",
@@ -311,7 +345,7 @@
       "note": "These are the settings of the historical 2026-10-22 experiment, recorded for comparability. They are NOT defaults: an experiment chooses its own budgets."
     },
     "historicalResults": "35B local: 3x blocked; 4B: 3x escalated; Opus (stock PAX): solved by the evaluator but exit 4 (oversized write). See docs/integration/stack-agent.md section 11.",
-    "preflight": "at the base acceptance 2/8, with the reference diff 8/8; regression passes with the reference",
+    "preflight": "release gate (npm run courses:preflight): at the base hidden acceptance 2/8 and regression passes (one rerun if only the known-flaky integration-e2e fails); with the reference diff 8/8 and regression passes",
     "provenance": "evaluator/PROVENANCE.json",
     "knownGaps": [
       "PAX 0.5.0 reports the vitest suite as unsupported (interpretation-unsupported)",

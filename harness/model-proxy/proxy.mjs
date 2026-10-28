@@ -11,6 +11,9 @@
 //  * Optional total-token budget (Stack-Agent has none): once spent, calls get HTTP 429.
 //  * Holds the upstream credential (resolved by the harness from a credential reference); the
 //    caller's Authorization header is never forwarded.
+//  * protocol "anthropic": the caller speaks Anthropic Messages (POST /v1/messages). The request is
+//    forwarded unchanged with the held key as x-api-key; the reply (SSE or JSON) is buffered, its
+//    usage read for the log and the token budget, and returned as is.
 //  * Logs ONE metadata line per call: timing, sizes, usage, finish reason, status. Never request or
 //    reply bodies (prompts can carry repository content; secrets must not reach logs).
 import { createServer } from 'node:http';
@@ -23,6 +26,28 @@ const chatUrl = (upstream) => {
   if (/\/v1$/.test(u)) return `${u}/chat/completions`;
   return `${u}/v1/chat/completions`;
 };
+const messagesUrl = (upstream) => {
+  const u = (upstream || 'https://api.anthropic.com').replace(/\/+$/, '');
+  if (/\/messages$/.test(u)) return u;
+  if (/\/v1$/.test(u)) return `${u}/messages`;
+  return `${u}/v1/messages`;
+};
+/** Usage and stop reason from an Anthropic Messages reply (SSE text or JSON body). */
+export function anthropicUsage(text, isSSE) {
+  let input = null, output = null, stop = null;
+  const take = (u) => { if (!u) return; if (u.input_tokens != null) input = u.input_tokens; if (u.output_tokens != null) output = u.output_tokens; };
+  if (!isSSE) { try { const o = JSON.parse(text); take(o.usage); stop = o.stop_reason ?? null; } catch { /* not JSON */ } }
+  else for (const block of text.split(/\n\n/)) {
+    const line = block.split('\n').find((l) => l.startsWith('data:'));
+    if (!line) continue;
+    try {
+      const o = JSON.parse(line.slice(5).trim());
+      if (o.type === 'message_start') take(o.message?.usage);
+      if (o.type === 'message_delta') { take(o.usage); stop = o.delta?.stop_reason ?? stop; }
+    } catch { /* ignore malformed frame */ }
+  }
+  return { usage: input == null && output == null ? null : { prompt_tokens: input ?? 0, completion_tokens: output ?? 0 }, stop };
+}
 const baseUrl = (upstream) => upstream.replace(/\/+$/, '').replace(/\/v1\/chat\/completions$/, '').replace(/\/chat\/completions$/, '').replace(/\/v1$/, '');
 
 function parseSSE(text) {
@@ -48,7 +73,7 @@ function parseSSE(text) {
  * @returns {Promise<{url: string, endpoint: string, port: number, stats: object, close: () => Promise<void>}>}
  */
 export async function startModelProxy(opts) {
-  const { upstream, log, credential, mode = 'translate', tokenBudget = null, callTimeoutMs = 3600_000, onCall, beforeReply, port = 0, host = '127.0.0.1' } = opts;
+  const { upstream, log, credential, protocol = 'openai', mode = 'translate', tokenBudget = null, callTimeoutMs = 3600_000, onCall, beforeReply, port = 0, host = '127.0.0.1' } = opts;
   const stats = { calls: 0, ok: 0, errors: 0, promptTokens: 0, completionTokens: 0, usageReported: 0, usageMissing: 0, budgetRefusals: 0 };
   const record = (entry) => {
     if (log) { mkdirSync(dirname(log), { recursive: true }); appendFileSync(log, JSON.stringify(entry) + '\n'); }
@@ -56,9 +81,51 @@ export async function startModelProxy(opts) {
   };
   const upstreamHeaders = { 'content-type': 'application/json', ...(credential ? { authorization: `Bearer ${credential}` } : {}) };
 
+  const budgetSpent = () => tokenBudget != null && stats.promptTokens + stats.completionTokens >= tokenBudget;
+
+  async function anthropicCall({ req, res, body, n, t0 }) {
+    const messages = Array.isArray(body.messages) ? body.messages : [];
+    const entry = { n, start: new Date(t0).toISOString(), protocol: 'anthropic', messages: messages.length,
+      request_bytes: messages.reduce((a, m) => a + (typeof m.content === 'string' ? Buffer.byteLength(m.content) : 0), 0),
+      max_tokens: body.max_tokens ?? null, stream: body.stream === true };
+    if (budgetSpent()) {
+      stats.budgetRefusals++; stats.errors++;
+      record(Object.assign(entry, { status: 429, error: 'token budget exhausted', secs: 0 }));
+      res.writeHead(429, { 'content-type': 'application/json' }).end(JSON.stringify({ type: 'error', error: { type: 'rate_limit_error', message: 'token budget exhausted (harness model proxy)' } }));
+      return;
+    }
+    const headers = { 'content-type': 'application/json', 'anthropic-version': req.headers['anthropic-version'] ?? '2023-06-01',
+      ...(req.headers['anthropic-beta'] ? { 'anthropic-beta': req.headers['anthropic-beta'] } : {}), ...(credential ? { 'x-api-key': credential } : {}) };
+    let r, text;
+    try {
+      r = await fetch(messagesUrl(upstream), { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(callTimeoutMs) });
+      text = await r.text();
+    } catch (e) {
+      stats.errors++;
+      record(Object.assign(entry, { status: 502, error: `upstream: ${e.name === 'TimeoutError' ? 'timeout' : e.message}`.slice(0, 300), secs: (Date.now() - t0) / 1000 }));
+      if (!res.headersSent) res.writeHead(502, { 'content-type': 'application/json' }).end(JSON.stringify({ type: 'error', error: { type: 'api_error', message: 'upstream model server unavailable' } }));
+      return;
+    }
+    const secs = Math.round((Date.now() - t0)) / 1000;
+    const type = r.headers.get('content-type') ?? 'application/json';
+    if (!r.ok) {
+      stats.errors++;
+      record(Object.assign(entry, { status: r.status, error: text.slice(0, 300), secs }));
+      res.writeHead(r.status, { 'content-type': type }).end(text);
+      return;
+    }
+    const { usage, stop } = anthropicUsage(text, type.includes('event-stream'));
+    if (usage) { stats.usageReported++; stats.promptTokens += usage.prompt_tokens; stats.completionTokens += usage.completion_tokens; } else stats.usageMissing++;
+    stats.ok++;
+    record(Object.assign(entry, { status: 200, secs, finish: stop, usage, tok_per_s: usage?.completion_tokens && secs ? Math.round((usage.completion_tokens / secs) * 100) / 100 : null }));
+    try { await beforeReply?.(entry); } catch { /* observer errors never break the proxy */ }
+    if (res.destroyed) return;
+    res.writeHead(200, { 'content-type': type, 'cache-control': 'no-cache' }).end(text);
+  }
+
   const server = createServer(async (req, res) => {
     try {
-      if (req.method === 'GET') {
+      if (req.method === 'GET' && protocol !== 'anthropic') {
         const r = await fetch(baseUrl(upstream) + req.url, { headers: credential ? { authorization: `Bearer ${credential}` } : {} });
         const data = Buffer.from(await r.arrayBuffer());
         res.writeHead(r.status, { 'content-type': r.headers.get('content-type') ?? 'application/json' }).end(data);
@@ -70,6 +137,7 @@ export async function startModelProxy(opts) {
       const t0 = Date.now();
       let body;
       try { body = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { res.writeHead(400, { 'content-type': 'application/json' }).end('{"error":{"message":"invalid JSON"}}'); return; }
+      if (protocol === 'anthropic') { await anthropicCall({ req, res, body, n, t0 }); return; }
       const wantsStream = body.stream === true;
       const rfIn = body.response_format;
       if (rfIn?.type === 'json_schema') {
@@ -143,7 +211,7 @@ export async function startModelProxy(opts) {
   const actual = server.address().port;
   const url = `http://${host}:${actual}`;
   return {
-    url, port: actual, endpoint: `${url}/v1/chat/completions`, stats,
+    url, port: actual, endpoint: protocol === 'anthropic' ? `${url}/v1/messages` : `${url}/v1/chat/completions`, stats,
     close: () => new Promise((resolve) => { server.closeAllConnections?.(); server.close(() => resolve()); }),
   };
 }

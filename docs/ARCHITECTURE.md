@@ -30,7 +30,7 @@ Harness  (harness/, Node)                         ── dispatcher + worker + e
 | Secrets | host custody (FeltKit); only `credential-ref:` in any record | never in prompts, logs, evidence |
 | Agent behaviour | Stack-Agent; other agents through adapters | no benchmark-only agent build |
 | Evidence | PAX + harness capture (process, files, diffs) | unsupported checks stay unsupported |
-| Acceptance | `harness/evaluator`, from the course version's acceptance section | the agent cannot read or change it |
+| Acceptance | `harness/evaluator`, resolved explicitly from the course version's `evaluator` section: a declarative `acceptance.v1` spec (validated by the same module in the app and the harness) or a pinned private evaluator | the agent cannot read or change it; changes are detected (ERROR); a version is published only after a passing preflight (docs/courses/acceptance-v1.md) |
 
 The embedded runtime's `db.workloads` does not work (UPSTREAM: FeltDB F10), so Durable Work runs on a local
 `feltdb-server`; see `docs/integration/durable-work.md`. The published release has no approval state, so nothing

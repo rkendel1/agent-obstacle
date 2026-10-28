@@ -18,25 +18,43 @@ other `PASS` even if the harness sends one.
 
 ```bash
 npm install
-npm run dev                 # app on http://localhost:3000, FeltKit Studio linked from the header
-npm run seed:courses        # in another terminal: publish courses/*/*/course.json as the dev admin
-npm run harness:key -- --out .feltkit/harness.key   # an API key for the harness (role: harness), shown once
+npm run dev
 ```
+
+That one command starts everything and keeps it running until Ctrl-C:
+
+1. checks the tools and installs the pinned builds with `cargo` into `~/.cargo/bin` when they are missing or a
+   different build is there (`feltdb-server` 0.3.0, `pax` @ c70680c, `stack-agent` @ 35d7af2; needs Rust from
+   https://rustup.rs; `--no-install` to skip; `AOC_PAX_BIN` / `AOC_STACK_AGENT_BIN` / `FELTDB_SERVER_BIN` choose
+   another binary on purpose);
+2. starts the FeltKit app on http://127.0.0.1:3000 (Studio: the Dashboard link it prints);
+3. publishes the courses (`courses/*/*/course.json`, idempotent);
+4. sets up (first run) and starts the work authority, a local `feltdb-server`;
+5. creates the harness's API key (`.harness/harness-api-key`), again whenever the app no longer accepts it;
+6. starts the harness, which picks up every run you launch in the app.
+
+Then: **Studio → Models** to choose a model and enter its API key (the harness uses that key in local development),
+open the app, pick a course, configure an agent and launch. `npm run dev -- --local-model 3b` also starts the bundled
+llama.cpp model server; `npm run dev:app` starts only the FeltKit app.
 
 Sign-in in development is a dev identity picker (top right): **ada** (admin), **grace** (developer), **linus**
 (viewer).
 
-Optional: select the environment's model in Studio → Models (or `npx feltkit model set --provider custom --model
-<model> --endpoint <url>`), then `npm run model:sync` so the Agent Configuration screen shows it (`seed:courses` also
-does this).
-
-### Start the harness
-
-<!-- HARNESS: the harness agent adds its commands here (work authority, model proxy, dispatcher/worker). -->
-
 ### Harness
 
 Full guide: [docs/harness/README.md](docs/harness/README.md) (what is enforced vs not, known gaps, recorded runs).
+
+Tools are found through the environment variable, then `PATH`, then the usual install locations
+(`~/.cargo/bin`, `~/.local/bin`):
+
+| Tool | Needed for | Install | Override |
+| --- | --- | --- | --- |
+| `feltdb-server` 0.3.0 | the work authority (every run) | `cargo install feltdb-server --version 0.3.0 --locked` | `FELTDB_SERVER_BIN` |
+| `pax` 0.5.0 | evidence (every run) | build PAX and put it on `PATH` | `AOC_PAX_BIN` |
+| `stack-agent` | Stack-Agent runs | `cargo build --locked --release --bin stack-agent`, put it on `PATH` | `AOC_STACK_AGENT_BIN` |
+| llama-cpp-python + GGUF | local-model runs | `pip install 'llama-cpp-python[server]'` | `AOC_LLM_PYTHON`, `AOC_MODELS_DIR` |
+
+The pieces `npm run dev` runs, one at a time (for debugging):
 
 ```bash
 npm run harness:authority:setup                          # local feltdb-server 0.3.0 work authority (once)
@@ -44,10 +62,8 @@ npm run harness:model:start -- --model 3b                # llama-cpp-python + mo
 npm run harness:key -- --out .harness/harness-api-key    # with the app running
 AOC_APP_URL=http://127.0.0.1:3000 AOC_HARNESS_API_KEY=$(cat .harness/harness-api-key) npm run harness:start
 npm run harness:test                                     # harness unit + Durable Work tests
-npm run harness:run -- --course course-000-calibration/v1 --adapter reference-control   # one run without the app
+npm run harness:run -- --course course-000-calibration/v2 --adapter reference-control   # one run without the app
 ```
-
-<!-- /HARNESS -->
 
 ## Screens
 
@@ -81,10 +97,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and the harness contract
 
 | Command | |
 | --- | --- |
-| `npm run dev` | development server (app, AppPort, MCP, Studio) |
+| `npm run dev [-- --local-model 3b] [--no-install] [--port N]` | everything: tools, app, courses, work authority, harness key, harness |
+| `npm run dev:app` | only the FeltKit development server (app, AppPort, MCP, Studio) |
 | `npm test` | tests against real, isolated FeltDB instances and real AppPort HTTP (no mocks) |
 | `npm run typecheck` / `npm run build` | TypeScript; FeltKit build (backend bundle + frontend) |
-| `npm run seed:courses [-- --dir <dir>] [--dry-run]` | publish every `courses/<course>/<version>/course.json` (never reads `evaluator/`) |
+| `npm run seed:courses [-- --dir <dir>] [--dry-run]` | publish every `courses/<course>/<version>/course.json` with its `preflight.json` (never reads `evaluator/` or reference fixes) |
+| `npm run courses:preflight -- <course>/<version>` | the release gate: baseline must fail, reference must pass, every check executed, evaluator isolated and tamper-evident; writes `preflight.json` ([docs/courses/acceptance-v1.md](docs/courses/acceptance-v1.md)) |
 | `npm run harness:key [-- --name <n>] [--out <file>]` | create a harness API key (development) |
 | `npm run model:sync` | record the environment's Intelligence selection for the Configure screen |
 | `npx feltkit doctor` / `npx feltkit inspect` | health and state |
@@ -95,7 +113,8 @@ The seed, key and model scripts use the running dev server when there is one (de
 ## Status (honest)
 
 - **Works and is tested**: course publishing with canonical-JSON digests and immutability (all change paths refused,
-  also after restart); experiment digests and revisions; the full harness contract over AppPort HTTP with a real API
+  also after restart), gated by a passing preflight report bound to the exact digest; explicit evaluator resolution
+  (declarative `acceptance.v1` or a pinned private evaluator; `none`/missing/invalid/tampered → ERROR); experiment digests and revisions; the full harness contract over AppPort HTTP with a real API
   key (idempotent replays, fencing, cancel before/after admission, inconsistent results refused); comparison per
   course version; rerun; event ordering and bounds; durability across restarts; live change notifications.
 - **Depends on the harness**: nothing runs an agent until the harness (`harness/`) is started; launched runs wait in

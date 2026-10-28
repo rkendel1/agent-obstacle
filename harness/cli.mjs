@@ -2,7 +2,7 @@
 // Harness entry points.
 //   npm run harness:start                  dispatcher + worker loop against the app (AOC_APP_URL, AOC_HARNESS_API_KEY)
 //   npm run harness:once                   same, until nothing is pending/running (tests, cron)
-//   npm run harness:run -- --course course-000-calibration/v1 --adapter reference-control [options]
+//   npm run harness:run -- --course course-000-calibration/v2 --adapter reference-control [options]
 //                                          one run WITHOUT the app (local sink), optionally --durable (real work authority)
 //   npm run harness:clean -- [--runs] [--fixtures]
 //
@@ -11,9 +11,9 @@
 //   --max-turns N --max-executions N --deadline-secs N --call-timeout-secs N --max-output-tokens N
 //   --obstacles default|none|<variant>   --option key=value (agent options, repeatable)   --run-id ID
 //   --durable   --evidence docs/harness/runs/<name>.json (small JSON summary)   --keep-eval
-import { rmSync, existsSync, mkdirSync } from 'node:fs';
+import { rmSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { runsDir, fixturesDir } from './lib/paths.mjs';
+import { runsDir, fixturesDir, requireTool, stateDir } from './lib/paths.mjs';
 import { canonicalDigest, writeJSON, readJSON, readJSONL, nowIso } from './lib/util.mjs';
 import { AppClient } from './app-client/index.mjs';
 import { loadState, refreshGrants, startAuthority, authorityStatus } from './work-authority/authority.mjs';
@@ -71,7 +71,7 @@ export function runSummary(runDir, extra = {}) {
 }
 
 async function runLocal() {
-  const course = loadCourseRef(opt('course', 'course-000-calibration/v1'));
+  const course = loadCourseRef(opt('course', 'course-000-calibration/v2'));
   const adapter = opt('adapter', 'reference-control');
   const rec = course.doc.meta?.recommendedBudgets ?? { maxTurns: 12, maxExecutions: 10, deadlineSecs: 900, callTimeoutSecs: 300 };
   const budgets = {
@@ -107,10 +107,25 @@ async function runLocal() {
   process.exitCode = outcome ? 0 : 1;
 }
 
+/** One dispatcher per checkout: a second one would race the first for claims ("RUNNING under another claim"). */
+function singleInstance() {
+  const file = join(stateDir(), 'harness.pid');
+  const other = existsSync(file) ? Number(readFileSync(file, 'utf8').trim()) : null;
+  if (other && other !== process.pid) {
+    try { process.kill(other, 0); throw new Error(`a harness is already running for this checkout (pid ${other}). Stop it (or stop the npm run dev that started it) first.`); }
+    catch (e) { if (e.code !== 'ESRCH') throw e; }
+  }
+  mkdirSync(stateDir(), { recursive: true });
+  writeFileSync(file, `${process.pid}\n`);
+  process.on('exit', () => { try { if (readFileSync(file, 'utf8').trim() === String(process.pid)) rmSync(file); } catch { /* gone */ } });
+}
+
 async function main() {
   switch (cmd) {
     case 'start':
     case 'once': {
+      singleInstance();
+      requireTool('pax'); // every run observes with PAX; Stack-Agent is checked when a run uses it
       const state = await authority();
       const app = AppClient.fromEnv();
       const d = new Dispatcher({ app, state, sink: new AppSink(app), log });

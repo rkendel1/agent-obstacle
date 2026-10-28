@@ -13,7 +13,7 @@ const tf = { id: 'transient-test-failure', type: 'transient-test-failure', param
 test('the PAX shim fails the first N `pax test` calls transiently, then delegates to the real PAX; every call is logged', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'aoc-shim-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
   const proj = join(dir, 'proj');
-  cpSync(join(COURSES_DIR, 'course-000-calibration/v1/fixture'), proj, { recursive: true });
+  cpSync(join(COURSES_DIR, 'course-000-calibration/v2/fixture'), proj, { recursive: true });
   const shim = installPaxShim({ binDir: join(dir, 'bin'), logPath: join(dir, 'pax-calls.jsonl'), schedule: [tf] });
   const env = { PATH: `${join(dir, 'bin')}:${process.env.PATH}`, HOME: process.env.HOME, CARGO_TARGET_DIR: join(dir, 'target'), RUSTUP_TOOLCHAIN: 'stable' };
   const v = run(shim.bin, ['--version'], { env });

@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "feltkit dev",
+    "dev": "node scripts/up.mjs",
+    "dev:app": "feltkit dev",
     "build": "feltkit build",
     "start": "feltkit start",
     "test": "feltkit test",
@@ -29,6 +30,7 @@
     "courses:pin": "node harness/courses/cli.mjs pin",
     "courses:prepare": "node harness/courses/cli.mjs prepare",
     "courses:export": "node harness/courses/cli.mjs export",
+    "courses:preflight": "node harness/courses/cli.mjs preflight",
     "seed:courses": "node scripts/seed-courses.mjs",
     "model:sync": "node scripts/model-sync.mjs",
     "harness:key": "node scripts/harness-key.mjs",
@@ -36,7 +38,7 @@
   },
   "dependencies": {
     "@feltdb/core": "0.15.0",
-    "@feltdb/feltkit": "^0.3.0",
+    "@feltdb/feltkit": "^0.3.1",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

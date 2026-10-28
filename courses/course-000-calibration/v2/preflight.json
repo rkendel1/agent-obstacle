@@ -1,0 +1,302 @@
+{
+  "schema": "aoc.preflight.v1",
+  "course": {
+    "id": "course-000-calibration",
+    "version": "v2",
+    "digest": "sha256:08d86e79066d654147bc1580efaa27184a9f39a1f730e062cbdf352e27259892"
+  },
+  "evaluator": {
+    "kind": "declarative",
+    "version": "acceptance.v1",
+    "digest": "sha256:6eb410aceb004401b412c4d4474902b947321006ac195c9192cc7e37993463ac"
+  },
+  "acceptanceDigest": "sha256:6eb410aceb004401b412c4d4474902b947321006ac195c9192cc7e37993463ac",
+  "harness": {
+    "evaluatorVersion": "@aoc/evaluator@1.1.0+eb2f4cdadb04",
+    "paxVersion": "pax 0.5.0",
+    "node": "v22.22.0"
+  },
+  "result": "pass",
+  "gates": [
+    {
+      "id": "evaluator-resolved",
+      "result": "pass",
+      "evidence": {
+        "kind": "declarative",
+        "version": "acceptance.v1",
+        "digest": "sha256:6eb410aceb004401b412c4d4474902b947321006ac195c9192cc7e37993463ac"
+      }
+    },
+    {
+      "id": "course-valid",
+      "result": "pass",
+      "evidence": {
+        "problems": []
+      }
+    },
+    {
+      "id": "fixture-reproducible",
+      "result": "pass",
+      "evidence": {
+        "pinned": "ba7228b42be4bcc43b16746af43d209c6231ce31a3414d525a765f8a3e82ebfb",
+        "first": "ba7228b42be4bcc43b16746af43d209c6231ce31a3414d525a765f8a3e82ebfb",
+        "second": "ba7228b42be4bcc43b16746af43d209c6231ce31a3414d525a765f8a3e82ebfb",
+        "baseCommit": "8a88339bcbdaf8ab2388c3a89d8339949a2f7e77",
+        "secondBaseCommit": "8a88339bcbdaf8ab2388c3a89d8339949a2f7e77",
+        "firstFromCache": false
+      }
+    },
+    {
+      "id": "baseline-fails",
+      "result": "pass",
+      "evidence": {
+        "outcome": "FAIL",
+        "failureClass": "agent",
+        "acceptance": "fail",
+        "checks": [
+          {
+            "id": "accept",
+            "result": "fail",
+            "executed": true
+          },
+          {
+            "id": "tests-unchanged",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "no-commits",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "sources-present",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "docs-unchanged",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "api-unchanged",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "unit-tests",
+            "result": "fail",
+            "executed": true,
+            "counts": {
+              "passed": 1,
+              "failed": 1,
+              "skipped": 0
+            }
+          },
+          {
+            "id": "inclusive-tests",
+            "result": "fail",
+            "executed": true,
+            "counts": {
+              "passed": 1,
+              "failed": 2,
+              "skipped": 0
+            }
+          },
+          {
+            "id": "totals-test-ran",
+            "result": "fail",
+            "executed": true
+          }
+        ],
+        "expected": {
+          "mustFail": [
+            "unit-tests",
+            "inclusive-tests",
+            "totals-test-ran"
+          ],
+          "mustPass": [
+            "tests-unchanged",
+            "no-commits",
+            "sources-present",
+            "docs-unchanged",
+            "api-unchanged"
+          ],
+          "counts": {
+            "unit-tests": {
+              "passed": 1,
+              "failed": 1
+            },
+            "inclusive-tests": {
+              "passed": 1,
+              "failed": 2
+            }
+          }
+        },
+        "misses": []
+      }
+    },
+    {
+      "id": "reference-passes",
+      "result": "pass",
+      "evidence": {
+        "outcome": "PASS",
+        "failureClass": null,
+        "acceptance": "pass",
+        "checks": [
+          {
+            "id": "accept",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "tests-unchanged",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "no-commits",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "sources-present",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "docs-unchanged",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "api-unchanged",
+            "result": "pass",
+            "executed": true
+          },
+          {
+            "id": "unit-tests",
+            "result": "pass",
+            "executed": true,
+            "counts": {
+              "passed": 2,
+              "failed": 0,
+              "skipped": 0
+            }
+          },
+          {
+            "id": "inclusive-tests",
+            "result": "pass",
+            "executed": true,
+            "counts": {
+              "passed": 3,
+              "failed": 0,
+              "skipped": 0
+            }
+          },
+          {
+            "id": "totals-test-ran",
+            "result": "pass",
+            "executed": true
+          }
+        ],
+        "expected": {
+          "counts": {
+            "unit-tests": {
+              "passed": 2,
+              "failed": 0
+            },
+            "inclusive-tests": {
+              "passed": 3,
+              "failed": 0
+            }
+          }
+        },
+        "misses": []
+      }
+    },
+    {
+      "id": "checks-executed",
+      "result": "pass",
+      "evidence": {
+        "expected": 9,
+        "baseline": {
+          "executed": 9,
+          "total": 9
+        },
+        "reference": {
+          "executed": 9,
+          "total": 9
+        },
+        "misses": []
+      }
+    },
+    {
+      "id": "evidence-captured",
+      "result": "pass",
+      "evidence": {
+        "captured": [
+          "digest:prepare",
+          "pax.observation:before",
+          "process:agent",
+          "pax.observation:after",
+          "diff:agent",
+          "digest:final",
+          "acceptance:verdict",
+          "acceptance:result",
+          "log:run-result",
+          "diff",
+          "process",
+          "acceptance",
+          "digest"
+        ],
+        "notApplicable": [
+          "pax.test (produced only by an agent; a control has none)",
+          "agent.report (produced only by an agent; a control has none)"
+        ],
+        "missing": []
+      }
+    },
+    {
+      "id": "evaluator-isolated",
+      "result": "pass",
+      "evidence": {
+        "privateFiles": [
+          "reference/fix.diff"
+        ],
+        "filesScanned": 10,
+        "watched": [
+          "fixture",
+          "course",
+          "evaluatorCode"
+        ],
+        "misses": [],
+        "note": "detected, not prevented: the agent runs as the same OS user; a write to the course directory or evaluator code is a critical violation and a changed private evaluator ERRORs at evaluation"
+      }
+    },
+    {
+      "id": "tamper-detected",
+      "result": "pass",
+      "evidence": {
+        "tampered": "flipped acceptance.require all/any in course.json",
+        "acceptance": "error",
+        "outcome": "ERROR",
+        "failureClass": "evaluator",
+        "reason": "course-digest-mismatch"
+      }
+    },
+    {
+      "id": "cleanup",
+      "result": "pass",
+      "evidence": {
+        "evaluationCopies": 2,
+        "fixtureCacheIntact": true,
+        "scratchRemoved": true,
+        "misses": []
+      }
+    }
+  ],
+  "startedAt": "2026-10-28T18:12:22.833Z",
+  "completedAt": "2026-10-28T18:12:25.230Z"
+}

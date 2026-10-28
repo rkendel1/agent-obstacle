@@ -2,9 +2,9 @@
   "schema": "aoc.course.v1",
   "identity": {
     "id": "course-000-calibration",
-    "version": "v1",
+    "version": "v2",
     "name": "Calibration: inclusive range length",
-    "description": "A tiny self-contained Rust crate with one real off-by-one defect. Deterministic, seconds to evaluate, and PAX 0.5.0 supports cargo, so an agent CAN verify its own fix here. Used to calibrate the harness, the evaluator and an agent's basic loop before harder courses.",
+    "description": "A tiny self-contained Rust crate with one real off-by-one defect. Deterministic, seconds to evaluate, and PAX 0.5.0 supports cargo, so an agent CAN verify its own fix here. Its acceptance is fully declarative (acceptance.v1): no private evaluator. Used to calibrate the harness, the evaluator and an agent's basic loop before harder courses.",
     "status": "published",
     "createdAt": "2026-10-28",
     "authors": [
@@ -13,15 +13,15 @@
   },
   "objective": {
     "kind": "change",
-    "goal": "Fix the defect in the Rust crate in this directory. span_len(start, end) is documented to return how many integers lie in the inclusive range start..=end (0 when end < start), but it is off by one: the existing unit test single_point_range_has_one_element fails. Fix the function in src/lib.rs so that the documented behaviour holds and cargo test passes. Do not change the documentation, the public API or the tests. Do not commit.",
-    "publicBrief": "One-line off-by-one in an inclusive-range helper; the crate's own test reproduces it."
+    "goal": "Fix the defect in the Rust crate in this directory. span_len(start, end) is documented to return how many integers lie in the inclusive range start..=end (0 when end < start), but it is off by one: the unit test single_point_range_has_one_element and the acceptance tests in tests/inclusive_ranges.rs fail. Fix the function in src/lib.rs so that the documented behaviour holds and cargo test passes. Do not change the documentation, the public API or any test. Do not commit.",
+    "publicBrief": "One-line off-by-one in an inclusive-range helper; the crate's own tests reproduce it."
   },
   "environment": {
     "kind": "local-isolated",
     "fixture": {
       "type": "directory",
       "path": "fixture",
-      "digest": "41795737218ebd84c0791d8e8f40438a2b35cb15dbc649c15671f8e8f132fbc0"
+      "digest": "ba7228b42be4bcc43b16746af43d209c6231ce31a3414d525a765f8a3e82ebfb"
     },
     "baseCommit": "created by the prepare step: the fixture is committed once into a fresh git repository (author aoc-harness, fixed dates) so the commit id is deterministic",
     "ecosystem": "rust-cargo",
@@ -85,23 +85,14 @@
       "how": "the evaluator compares HEAD and refs with the base after the run"
     },
     {
-      "id": "no-evaluator-paths",
-      "severity": "critical",
-      "rule": "the hidden acceptance destination must not exist in the workspace",
-      "paths": [
-        "tests/span_acceptance.rs"
-      ],
-      "enforcement": "detected",
-      "how": "the evaluator refuses to overwrite it and records the violation"
-    },
-    {
       "id": "forbidden-paths",
       "severity": "major",
-      "rule": "do not modify the manifest, the lockfile or the existing tests' file layout",
+      "rule": "do not modify the manifest, the lockfile, .gitignore or the tests",
       "paths": [
         "Cargo.toml",
         "Cargo.lock",
-        ".gitignore"
+        ".gitignore",
+        "tests/**"
       ],
       "enforcement": "detected",
       "how": "the evaluator inspects the diff against the base"
@@ -118,7 +109,7 @@
       "severity": "critical",
       "rule": "do not write outside the workspace",
       "enforcement": "partially-detected",
-      "how": "the fixture cache and this course's evaluator directory are digested before and after the agent stage; the agent runs with cwd = workspace and Stack-Agent's own path-escape audit. Not a sandbox: other locations are not watched."
+      "how": "the fixture cache, this course's directory (document, reference fix) and the evaluator's own code are digested before and after the agent stage; the agent runs with cwd = workspace and Stack-Agent's own path-escape audit. Not a sandbox: other locations are not watched."
     },
     {
       "id": "no-network",
@@ -158,53 +149,167 @@
       ]
     }
   },
-  "acceptance": {
-    "public": "Independent evaluation in a fresh copy (pristine fixture + the agent's diff): the crate's existing unit tests must pass (regression) and a hidden acceptance test of the documented inclusive-range behaviour must pass. The agent never sees the hidden test. The agent's own claim is recorded but never consulted.",
-    "evaluatorDigest": "d99e93f6b54e29d9445a2a02045b6f2ec3de2c514261b9979f614b81beaa7aa8",
-    "regression": {
-      "command": [
-        "cargo",
-        "test",
-        "--lib"
-      ],
-      "knownFlaky": []
-    },
-    "hidden": [
-      {
-        "file": "evaluator/acceptance/span_acceptance.rs",
-        "dest": "tests/span_acceptance.rs",
-        "command": [
-          "cargo",
-          "test",
-          "--test",
-          "span_acceptance"
-        ]
-      }
-    ],
+  "evaluator": {
+    "kind": "declarative",
     "reference": {
-      "file": "evaluator/reference/fix.diff",
-      "use": "reference-control calibration only; proves the acceptance is satisfiable"
+      "file": "reference/fix.diff",
+      "digest": "aaa83dd59da24600dd6e41380660382886018917c0b8915d9a3068e8db25135d"
+    }
+  },
+  "acceptance": {
+    "schema": "acceptance.v1",
+    "summary": "Declarative (acceptance.v1), evaluated by the harness in a fresh copy (pristine fixture + the agent's diff): the crate's unit tests and the acceptance tests in tests/inclusive_ranges.rs pass with the expected counts, the tests, manifest and documentation are unchanged, and nothing was committed. The agent's own claim is recorded but never consulted.",
+    "toolchain": [
+      "cargo"
+    ],
+    "require": {
+      "kind": "all",
+      "id": "accept",
+      "of": [
+        {
+          "id": "tests-unchanged",
+          "kind": "invariant",
+          "invariant": "unchanged",
+          "paths": [
+            "tests/inclusive_ranges.rs",
+            "Cargo.toml",
+            "Cargo.lock"
+          ],
+          "description": "the acceptance tests and the manifest are byte-identical to the fixture"
+        },
+        {
+          "id": "no-commits",
+          "kind": "invariant",
+          "invariant": "no-commits",
+          "description": "HEAD and refs stay at the base commit"
+        },
+        {
+          "id": "sources-present",
+          "kind": "files-exist",
+          "paths": [
+            "src/lib.rs",
+            "tests/inclusive_ranges.rs"
+          ]
+        },
+        {
+          "id": "docs-unchanged",
+          "kind": "file-content",
+          "path": "src/lib.rs",
+          "match": {
+            "contains": "/// Number of integers in the inclusive range `start..=end` (0 when `end < start`)."
+          },
+          "description": "the documented contract is kept"
+        },
+        {
+          "id": "api-unchanged",
+          "kind": "file-content",
+          "path": "src/lib.rs",
+          "match": {
+            "regex": "pub fn span_len\\(start: i64, end: i64\\) -> u64 \\{"
+          }
+        },
+        {
+          "id": "unit-tests",
+          "kind": "test",
+          "argv": [
+            "cargo",
+            "test",
+            "--lib"
+          ],
+          "timeoutSecs": 300,
+          "format": "cargo",
+          "exit": {
+            "equals": 0
+          },
+          "counts": {
+            "passed": {
+              "min": 2
+            },
+            "failed": {
+              "equals": 0
+            }
+          }
+        },
+        {
+          "id": "inclusive-tests",
+          "kind": "test",
+          "argv": [
+            "cargo",
+            "test",
+            "--test",
+            "inclusive_ranges"
+          ],
+          "timeoutSecs": 300,
+          "format": "cargo",
+          "exit": {
+            "equals": 0
+          },
+          "counts": {
+            "passed": {
+              "equals": 3
+            },
+            "failed": {
+              "equals": 0
+            }
+          }
+        },
+        {
+          "id": "totals-test-ran",
+          "kind": "output",
+          "of": "inclusive-tests",
+          "stream": "stdout",
+          "match": {
+            "regex": "test totals_add_inclusive_lengths \\.\\.\\. ok"
+          }
+        }
+      ]
     },
-    "timeoutSecs": 600,
-    "summary": "Independent evaluation in a fresh copy (pristine fixture + the agent's diff): the crate's existing unit tests must pass (regression) and a hidden acceptance test of the documented inclusive-range behaviour must pass. The agent never sees the hidden test. The agent's own claim is recorded but never consulted.",
-    "checks": [
-      "base-commit",
-      "diff",
-      "no-evaluator-paths",
-      "forbidden-paths",
-      "budgets",
-      "workspace-only",
-      "regression",
-      "acceptance:tests/span_acceptance.rs"
-    ]
+    "preflight": {
+      "baseline": {
+        "mustFail": [
+          "unit-tests",
+          "inclusive-tests",
+          "totals-test-ran"
+        ],
+        "mustPass": [
+          "tests-unchanged",
+          "no-commits",
+          "sources-present",
+          "docs-unchanged",
+          "api-unchanged"
+        ],
+        "counts": {
+          "unit-tests": {
+            "passed": 1,
+            "failed": 1
+          },
+          "inclusive-tests": {
+            "passed": 1,
+            "failed": 2
+          }
+        }
+      },
+      "reference": {
+        "counts": {
+          "unit-tests": {
+            "passed": 2,
+            "failed": 0
+          },
+          "inclusive-tests": {
+            "passed": 3,
+            "failed": 0
+          }
+        }
+      }
+    }
   },
   "scoring": {
-    "outcome": "PASS iff regression passes, the hidden acceptance passes and no critical violation completed; FAIL otherwise when the agent ran; BLOCKED when the attempt could not start for reasons outside the agent (model unavailable, environment not prepared); ERROR for harness/evaluator faults; CANCELLED when cancelled. The agent's claim never changes the outcome.",
+    "outcome": "Not a score: the outcome comes from the acceptance record and harness state only. PASS iff the declarative acceptance passes and no critical violation completed; FAIL otherwise when the agent ran; BLOCKED when the attempt could not start for reasons outside the agent (model unavailable, environment not prepared); ERROR for harness/evaluator faults; CANCELLED when cancelled. The agent's claim never changes the outcome.",
     "dimensions": [
       {
         "id": "modify",
         "label": "Modify",
-        "measure": "evaluator: acceptance + regression on the agent's diff",
+        "measure": "evaluator: the declarative acceptance on the agent's diff",
         "weight": 1
       },
       {
@@ -252,7 +357,7 @@
       "maxOutputTokens": 1024
     },
     "notes": [
-      "A reference-control run must PASS and an unchanged workspace must FAIL; both are recorded under docs/harness/runs/."
+      "A reference-control run must PASS and an unchanged workspace must FAIL; `npm run courses:preflight -- course-000-calibration/v2` checks both (and more) and writes preflight.json, which publishing requires."
     ],
     "fixtureDeterministic": true,
     "skills": [

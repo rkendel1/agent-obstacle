@@ -34,12 +34,13 @@ export function gitRefs(dir) { return run('git', ['for-each-ref', '--format=%(re
 
 /**
  * Prepare (or reuse) the cached fixture. Returns { dir: <cache dir>, tree, baseCommit, fixtureDigest, recipeDigest, refs, cached }.
- * `adopt` lets a caller hand over an already prepared checkout (moved into the cache).
+ * `adopt` lets a caller hand over an already prepared checkout (moved into the cache). `root`
+ * prepares into another cache directory (preflight prepares a second, independent copy).
  */
-export function prepareFixture(course, { log = () => {}, adopt } = {}) {
+export function prepareFixture(course, { log = () => {}, adopt, root } = {}) {
   const recipe = fixtureRecipe(course);
   const recipeDigest = canonicalDigest(recipe);
-  const dir = join(fixturesDir(), recipeDigest.slice(0, 16));
+  const dir = join(root ?? fixturesDir(), recipeDigest.slice(0, 16));
   const metaPath = join(dir, 'fixture.json');
   if (existsSync(metaPath)) {
     const meta = readJSON(metaPath);

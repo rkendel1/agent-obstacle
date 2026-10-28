@@ -9,8 +9,8 @@
  * `npm run seed:courses`, `npm run harness:authority:setup`, and a harness API key
  * (`npm run harness:key -- --out <file>`), passed as --key-file or AOC_HARNESS_API_KEY.
  *
- *   --run course-000-calibration@v1=reference-control
- *   --run course-000-calibration@v1=stack-agent:model=qwen2.5-coder-3b,endpoint=http://127.0.0.1:8080,obstacles=transient-test-failure
+ *   --run course-000-calibration@v2=reference-control
+ *   --run course-000-calibration@v2=stack-agent:model=qwen2.5-coder-3b,endpoint=http://127.0.0.1:8080,obstacles=transient-test-failure
  */
 import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

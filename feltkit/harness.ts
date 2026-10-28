@@ -10,7 +10,7 @@
  */
 import { fail, s, type MutationCtx, type QueryCtx } from "@feltdb/feltkit";
 import { app, courseVersions, evidence, runEvents, runs } from "./app.js";
-import { byteLength, canonicalJson, normalizeDigest, sha256Hex } from "./lib/canonical.js";
+import { byteLength, canonicalJson, digestOf, normalizeDigest, sha256Hex } from "./lib/canonical.js";
 import { CourseVersionOut, EvidenceItem, Ok, PendingRun, RunEvent, RunResultShape } from "./lib/schemas.js";
 import type { RunResult, StageEntry } from "./runs.js";
 
@@ -303,6 +303,33 @@ export function inconsistencies(result: RunResult): string[] {
   return problems;
 }
 
+/**
+ * The evaluator provenance a result claims, checked against the run's frozen course version: the
+ * acceptance digest must be the version's, the evaluator kind the declared one, a private
+ * evaluator's digest the pinned one. A PASS or FAIL (an evaluation happened) must carry both.
+ */
+export function provenanceProblems(result: RunResult, spec: unknown): string[] {
+  const problems: string[] = [];
+  const doc = (typeof spec === "object" && spec !== null ? spec : {}) as Record<string, any>;
+  const declared = typeof doc.evaluator === "object" && doc.evaluator !== null ? doc.evaluator : null;
+  const rep = result.reproducibility as Record<string, any>;
+  if (!declared) return problems;
+  if ((result.outcome === "PASS" || result.outcome === "FAIL") && (rep.evaluator === undefined || rep.acceptanceDigest === undefined)) {
+    problems.push(`a ${result.outcome} needs reproducibility.evaluator and reproducibility.acceptanceDigest`);
+  }
+  if (rep.acceptanceDigest !== undefined && normalizeDigest(String(rep.acceptanceDigest)) !== digestOf(doc.acceptance)) {
+    problems.push("reproducibility.acceptanceDigest is not the course version's frozen acceptance");
+  }
+  if (rep.evaluator !== undefined) {
+    const ev = typeof rep.evaluator === "object" && rep.evaluator !== null ? rep.evaluator : {};
+    if (ev.kind !== declared.kind) problems.push(`reproducibility.evaluator.kind ${String(ev.kind)} is not the declared ${String(declared.kind)}`);
+    else if (declared.kind === "private" && normalizeDigest(String(ev.digest ?? "")) !== normalizeDigest(String(declared.digest ?? ""))) {
+      problems.push("reproducibility.evaluator.digest is not the private evaluator digest the course version pins");
+    }
+  }
+  return problems;
+}
+
 /** runs.completed@1 — the terminal result. Idempotent; a second, different result is refused. */
 export const completed = app.mutation({
   access: "harness.runs.write",
@@ -336,6 +363,9 @@ export const completed = app.mutation({
     }
     const problems = inconsistencies(result);
     if (problems.length) refuse("inconsistent_result", `Inconsistent result refused: ${problems.join("; ")}.`, { problems });
+    const version = await ctx.db.get(courseVersions, run.courseVersionId);
+    const provenance = provenanceProblems(result, version?.spec);
+    if (provenance.length) refuse("evaluator_mismatch", `Evaluator provenance refused: ${provenance.join("; ")}.`, { problems: provenance });
     const now = Date.now();
     await ctx.db.patch(runs, result.runId, {
       state: "terminal",

@@ -1,0 +1,369 @@
+{
+  "recordedAt": "2026-10-28T17:59:55.128Z",
+  "mode": "end-to-end through the real FeltKit app (AppPort, harness API key) + Durable Work on feltdb-server 0.3.0",
+  "app": "http://127.0.0.1:3177",
+  "runId": "mvsf4x0nf1336137c802",
+  "course": "course-000-calibration@v1",
+  "adapter": "reference-control",
+  "appRunState": "terminal",
+  "appOutcome": "PASS",
+  "workloadId": "workload_db3975fc4070290c20aff644",
+  "result": {
+    "runId": "mvsf4x0nf1336137c802",
+    "workloadId": "workload_db3975fc4070290c20aff644",
+    "outcome": "PASS",
+    "claims": {
+      "agentTerminalState": "control:reference-applied",
+      "summary": "control (not an agent): applied the course reference fix reference/fix.diff"
+    },
+    "observed": {
+      "exitCode": 0,
+      "durationMs": 5,
+      "timedOut": false
+    },
+    "evaluation": {
+      "evaluatorVersion": "@aoc/evaluator@1.1.0+eb2f4cdadb04",
+      "acceptance": "pass",
+      "checks": [
+        {
+          "id": "evaluator",
+          "result": "pass",
+          "detail": "declarative acceptance.v1 sha256:6eb410aceb00…",
+          "executed": true
+        },
+        {
+          "id": "base-commit",
+          "result": "pass",
+          "detail": "HEAD 5a1cb5151a29 (base 5a1cb5151a29)",
+          "executed": true
+        },
+        {
+          "id": "diff",
+          "result": "pass",
+          "detail": "1 file(s) changed: M src/lib.rs",
+          "executed": true
+        },
+        {
+          "id": "forbidden-paths",
+          "result": "pass",
+          "executed": true
+        },
+        {
+          "id": "budgets",
+          "result": "pass",
+          "executed": true
+        },
+        {
+          "id": "workspace-only",
+          "result": "pass",
+          "detail": "watched: fixture, course, evaluatorCode",
+          "executed": true
+        },
+        {
+          "id": "acceptance:accept",
+          "result": "pass",
+          "detail": "all: 8/8 pass",
+          "executed": true,
+          "kind": "all"
+        },
+        {
+          "id": "acceptance:tests-unchanged",
+          "result": "pass",
+          "detail": "3 path(s) identical to the fixture",
+          "executed": true,
+          "kind": "invariant"
+        },
+        {
+          "id": "acceptance:no-commits",
+          "result": "pass",
+          "detail": "HEAD and refs at the base 5a1cb5151a29",
+          "executed": true,
+          "kind": "invariant"
+        },
+        {
+          "id": "acceptance:sources-present",
+          "result": "pass",
+          "detail": "2 present",
+          "executed": true,
+          "kind": "files-exist"
+        },
+        {
+          "id": "acceptance:docs-unchanged",
+          "result": "pass",
+          "detail": "src/lib.rs: contains the text",
+          "executed": true,
+          "kind": "file-content"
+        },
+        {
+          "id": "acceptance:api-unchanged",
+          "result": "pass",
+          "detail": "src/lib.rs: regex matched",
+          "executed": true,
+          "kind": "file-content"
+        },
+        {
+          "id": "acceptance:unit-tests",
+          "result": "pass",
+          "detail": "exit 0 (expected = 0); passed 2, failed 0, skipped 0",
+          "executed": true,
+          "kind": "test",
+          "counts": {
+            "passed": 2,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "id": "acceptance:inclusive-tests",
+          "result": "pass",
+          "detail": "exit 0 (expected = 0); passed 3, failed 0, skipped 0",
+          "executed": true,
+          "kind": "test",
+          "counts": {
+            "passed": 3,
+            "failed": 0,
+            "skipped": 0
+          }
+        },
+        {
+          "id": "acceptance:totals-test-ran",
+          "result": "pass",
+          "detail": "inclusive-tests stdout: regex matched",
+          "executed": true,
+          "kind": "output"
+        }
+      ],
+      "violations": [],
+      "acceptanceResult": {
+        "schema": "aoc.acceptance-result.v1",
+        "result": "pass",
+        "executed": 9,
+        "total": 9,
+        "evaluator": {
+          "kind": "declarative",
+          "version": "acceptance.v1",
+          "digest": "sha256:6eb410aceb004401b412c4d4474902b947321006ac195c9192cc7e37993463ac",
+          "interpreter": "@aoc/evaluator@1.1.0+eb2f4cdadb04"
+        },
+        "acceptanceDigest": "sha256:6eb410aceb004401b412c4d4474902b947321006ac195c9192cc7e37993463ac"
+      }
+    },
+    "metrics": {
+      "agentDurationMs": 5,
+      "turns": null,
+      "executions": null,
+      "modelCallsReported": null,
+      "modelCallsObserved": null,
+      "inputTokensReported": null,
+      "outputTokensReported": null,
+      "promptTokensObserved": null,
+      "completionTokensObserved": null,
+      "paxTestsObserved": 0,
+      "paxTestsInjected": 0,
+      "filesChanged": 1,
+      "modelFailures": null,
+      "malformedReplies": null,
+      "interruptions": null,
+      "evaluationMs": 520,
+      "attempts": 1
+    },
+    "recovery": [],
+    "reproducibility": {
+      "courseDigest": "sha256:cc8d5c0b1167f716a361efdf3c9d201d97ba32479d8087f7d59b8766ed5283c8",
+      "fixtureDigest": "sha256:ba7228b42be4bcc43b16746af43d209c6231ce31a3414d525a765f8a3e82ebfb",
+      "finalTreeDigest": "sha256:0211da3585d6ac142f5d4f9068aeb848ea0fbc43019fe6c5d3e65aac9e9915d6",
+      "experimentDigest": "sha256:7520d5644e5a202a8e5de6e3d5e49ccfea59e310a95b1b8ffa84296f90f9764e",
+      "agentVersion": "reference-control control-1",
+      "paxVersion": "pax 0.5.0",
+      "evaluatorVersion": "@aoc/evaluator@1.1.0+eb2f4cdadb04",
+      "workAuthorityRelease": "feltdb-server 0.3.0",
+      "deterministic": true,
+      "note": "reference-control is a CONTROL, not an agent: it calibrates the harness and evaluator.",
+      "evaluator": {
+        "kind": "declarative",
+        "version": "acceptance.v1",
+        "digest": "sha256:6eb410aceb004401b412c4d4474902b947321006ac195c9192cc7e37993463ac"
+      },
+      "acceptanceDigest": "sha256:6eb410aceb004401b412c4d4474902b947321006ac195c9192cc7e37993463ac"
+    },
+    "startedAt": "2026-10-28T17:59:00.168Z",
+    "completedAt": "2026-10-28T17:59:04.698Z"
+  },
+  "eventsFromApp": {
+    "count": 43,
+    "byKind": {
+      "stage": 15,
+      "environment": 1,
+      "verification": 24,
+      "control": 1,
+      "claim": 1,
+      "file.change": 1
+    },
+    "notable": [
+      {
+        "seq": 13,
+        "source": "agent",
+        "kind": "claim",
+        "summary": "control claims: control:reference-applied; verified=n/a"
+      },
+      {
+        "seq": 23,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "evaluator: pass — declarative acceptance.v1 sha256:6eb410aceb00…"
+      },
+      {
+        "seq": 24,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "base-commit: pass — HEAD 5a1cb5151a29 (base 5a1cb5151a29)"
+      },
+      {
+        "seq": 25,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "diff: pass — 1 file(s) changed: M src/lib.rs"
+      },
+      {
+        "seq": 26,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "forbidden-paths: pass"
+      },
+      {
+        "seq": 27,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "budgets: pass"
+      },
+      {
+        "seq": 28,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "workspace-only: pass — watched: fixture, course, evaluatorCode"
+      },
+      {
+        "seq": 29,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:accept: pass — all: 8/8 pass"
+      },
+      {
+        "seq": 30,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:tests-unchanged: pass — 3 path(s) identical to the fixture"
+      },
+      {
+        "seq": 31,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:no-commits: pass — HEAD and refs at the base 5a1cb5151a29"
+      },
+      {
+        "seq": 32,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:sources-present: pass — 2 present"
+      },
+      {
+        "seq": 33,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:docs-unchanged: pass — src/lib.rs: contains the text"
+      },
+      {
+        "seq": 34,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:api-unchanged: pass — src/lib.rs: regex matched"
+      },
+      {
+        "seq": 35,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:unit-tests: pass — exit 0 (expected = 0); passed 2, failed 0, skipped 0"
+      },
+      {
+        "seq": 36,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:inclusive-tests: pass — exit 0 (expected = 0); passed 3, failed 0, skipped 0"
+      },
+      {
+        "seq": 37,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:totals-test-ran: pass — inclusive-tests stdout: regex matched"
+      },
+      {
+        "seq": 38,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "outcome PASS; the agent's claim was not consulted"
+      }
+    ]
+  },
+  "evidenceFromApp": [
+    {
+      "evidenceId": "digest:prepare",
+      "kind": "digest",
+      "digest": "sha256:c93008578569159c641163276bdc86c602eb5edd467bfd9150a23641105e6ccc"
+    },
+    {
+      "evidenceId": "pax.observation:before",
+      "kind": "pax.observation",
+      "digest": "sha256:02f06b86f225b42b9f80f86f32f6e532963bd39957dc2f941b934972a203a671"
+    },
+    {
+      "evidenceId": "process:agent",
+      "kind": "process",
+      "digest": "sha256:86a4ccd2fdf1bacd6390dc41c433273bc4c1936dc7edac978aa598f6dea86791"
+    },
+    {
+      "evidenceId": "pax.observation:after",
+      "kind": "pax.observation",
+      "digest": "sha256:e2a8828c4903b9730dcab7660c3bc7d74dcf6be32437dd18709f86b574eb6b58"
+    },
+    {
+      "evidenceId": "diff:agent",
+      "kind": "diff",
+      "digest": "sha256:6c151f79d5b995646dd8e0b54c265f21cddcffa4bb14ba145751dd7aadc99c2d"
+    },
+    {
+      "evidenceId": "log:git-status",
+      "kind": "log",
+      "digest": "sha256:c9d239f6e4adcad839fe12e8c56164929c3e39d881d65905c7e6dda6d35752e9"
+    },
+    {
+      "evidenceId": "digest:final",
+      "kind": "digest",
+      "digest": "sha256:1cf6ebe1607ad8044a2b7bdf25c2c3f9fb7ad31614024aa6e0bdd7c2b24b33be"
+    },
+    {
+      "evidenceId": "acceptance:verdict",
+      "kind": "acceptance",
+      "digest": "sha256:a55a175ff906700b039bbda3c387b67f53b38fa1c19f8c69b465b64243893ac2"
+    },
+    {
+      "evidenceId": "acceptance:result",
+      "kind": "acceptance",
+      "digest": "sha256:bd7e0fff373c2778b4e2d9fab3a42f1fb2edd9bb0ddc677f6a01467ef8c8086e"
+    },
+    {
+      "evidenceId": "acceptance:check-inclusive-tests",
+      "kind": "acceptance",
+      "digest": "sha256:4e73efbca56104561296474c2fb08f2da9abb966bd891750ae3fc91f90fea9b7"
+    },
+    {
+      "evidenceId": "acceptance:check-unit-tests",
+      "kind": "acceptance",
+      "digest": "sha256:c5ae28491f08f4d6b00395eef9e3fb1762dd87b75df0b8a85989b61ae5145ecd"
+    },
+    {
+      "evidenceId": "log:run-result",
+      "kind": "log",
+      "digest": "sha256:efda735b539ddfb5e417131cd32464c474c4e2f6403a34002120fbbb880e00bf"
+    }
+  ]
+}

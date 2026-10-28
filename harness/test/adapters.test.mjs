@@ -24,7 +24,7 @@ const { runDirect } = await import('../worker/direct.mjs');
 const { agentEnv, DENY } = await import('../agents/adapter.mjs');
 const { extractDiff, keywords } = await import('../agents/patch-agent.mjs');
 
-const course = loadCourseRef('course-000-calibration/v1');
+const course = loadCourseRef('course-000-calibration/v2');
 const FIX = readFileSync(new URL('./fixtures/course-000-stack-agent-fix.script', import.meta.url), 'utf8').trim().split('\n');
 const model = (url, extra = {}) => ({ provider: 'openai-compatible', model: 'scripted', endpoint: url, ...extra });
 const walk = (d) => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
@@ -77,7 +77,8 @@ test('stack-agent process-interruption: SIGKILL right after its first pax test, 
   const m = await startScriptedModel(t, ['{"decision":"request_capability","capability":"project.list","inputs":{"path":"."}}', ...lines]);
   const runId = 'sa-interrupt-1';
   const c = { ...course, doc: course.doc };
-  const input = pendingRun({ runId, course: c, adapter: 'stack-agent', options: { leaseSecs: 6 }, model: model(m.url), obstacles: { enabled: true, overrides: { variant: 'interruption' } } });
+  // A short lease so the relaunch takes over quickly; Stack-Agent refuses a lease not longer than the call timeout.
+  const input = pendingRun({ runId, course: c, adapter: 'stack-agent', options: { leaseSecs: 6 }, budgets: { maxTurns: 8, maxExecutions: 8, deadlineSecs: 120, callTimeoutSecs: 5 }, model: model(m.url), obstacles: { enabled: true, overrides: { variant: 'interruption' } } });
   const r = await runDirect({ runId, input });
   const launches = JSON.parse(readFileSync(join(r.runDir, 'agent-result.json'), 'utf8')).launches;
   assert.ok(launches.length >= 2, `relaunched (${JSON.stringify(launches)})`);
@@ -111,4 +112,14 @@ test('patch-agent helpers', () => {
   assert.equal(extractDiff('```diff\n--- a/x\n+++ b/x\n```'), '--- a/x\n+++ b/x\n');
   assert.equal(extractDiff('nothing'), null);
   assert.ok(keywords('Fix span_len in src/lib.rs so that cargo test passes').includes('span_len'));
+});
+
+test('stack-agent durableState: false runs with --no-state (no task id, state db or lease); the default keeps durable state', async () => {
+  const { workArgs } = await import('../agents/stack-agent.mjs');
+  const req = (options) => ({ objective: { goal: 'g' }, budgets: { maxTurns: 1, maxExecutions: 1, callTimeoutSecs: 30 }, model: { provider: 'anthropic', model: 'm', endpoint: 'e' }, runId: 'r', options });
+  const off = workArgs(req({ durableState: false }), { stateDb: 's', leaseSecs: 90, deadlineSecs: 9 });
+  assert.ok(off.includes('--no-state'));
+  for (const f of ['--task-id', '--state-db', '--lease-secs']) assert.ok(!off.includes(f), f);
+  const on = workArgs(req({}), { stateDb: 's', leaseSecs: 90, deadlineSecs: 9 });
+  assert.ok(!on.includes('--no-state') && on.includes('--task-id') && on.includes('--state-db'));
 });

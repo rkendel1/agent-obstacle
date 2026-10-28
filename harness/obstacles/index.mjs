@@ -34,14 +34,14 @@ export function obstacleSchedule(courseDoc, experimentObstacles) {
  * every run (it is also the harness's observation of the agent's PAX calls); it only injects when
  * the schedule has a transient-test-failure.
  */
-export function installPaxShim({ binDir, logPath, schedule, interruptViaShim = false }) {
+export function installPaxShim({ binDir, logPath, schedule, interruptViaShim = false, pgidFile = null }) {
   mkdirSync(binDir, { recursive: true });
   const tf = schedule.find((o) => o.type === 'transient-test-failure');
   const pi = interruptViaShim ? schedule.find((o) => o.type === 'process-interruption' && o.params?.trigger?.event === 'pax.test') : null;
   const config = {
     realPax: TOOLS.pax, log: logPath,
     testFailures: tf ? { obstacleId: tf.id, failFirst: tf.params?.failFirst ?? 1, exitCode: tf.params?.exitCode ?? 75 } : null,
-    interrupt: pi ? { obstacleId: pi.id, afterTests: pi.params.trigger.count ?? 1, marker: `${logPath}.interrupted` } : null,
+    interrupt: pi ? { obstacleId: pi.id, afterTests: pi.params.trigger.count ?? 1, marker: `${logPath}.interrupted`, pgidFile } : null,
   };
   const configPath = join(binDir, '.pax-shim.json');
   writeJSON(configPath, config);

@@ -118,6 +118,26 @@ const json = (s: string, name: string): Record<string, unknown> | undefined => {
   return v as Record<string, unknown>;
 };
 
+/** One model setup: what an experiment records. The key itself lives in FeltKit's custody under credentialRef. */
+interface ModelChoice {
+  label: string;
+  provider: string;
+  model: string;
+  endpoint?: string;
+  credentialRef?: string;
+}
+
+/** Starting points. Any number of models and keys can be used: one credential reference per provider or account. */
+const PRESETS: ModelChoice[] = [
+  { label: "Anthropic · Claude Opus 5.5", provider: "anthropic", model: "claude-opus-5-5", endpoint: "https://api.anthropic.com", credentialRef: "credential-ref:anthropic" },
+  { label: "Anthropic · Claude Sonnet 5.5", provider: "anthropic", model: "claude-sonnet-5-5", endpoint: "https://api.anthropic.com", credentialRef: "credential-ref:anthropic" },
+  { label: "Anthropic · Claude Fable 5.1", provider: "anthropic", model: "claude-fable-5-1", endpoint: "https://api.anthropic.com", credentialRef: "credential-ref:anthropic" },
+  { label: "OpenAI-compatible server on this machine (Ollama, LM Studio, llama.cpp, Jan…)", provider: "openai-compatible", model: "", endpoint: "http://127.0.0.1:11434/v1" },
+  { label: "Bundled local model (npm run dev -- --local-model 3b)", provider: "openai-compatible", model: "qwen2.5-coder-3b", endpoint: "http://127.0.0.1:8080" },
+];
+
+const choiceKey = (m: ModelChoice) => [m.provider, m.model, m.endpoint ?? "", m.credentialRef ?? ""].join("|");
+
 /** Build the digest-covered definition from the form. Throws a readable error. */
 function toDefinition(f: Form): DefinitionArgs {
   const inference: Record<string, unknown> = { ...(json(f.inferenceExtra, "Other inference settings") ?? {}) };
@@ -247,6 +267,25 @@ export function Configure({ params }: { params: URLSearchParams }) {
 
   const courseCaps = course.data?.display.capabilities ?? [];
 
+  // Every model setup used by a saved experiment, newest first, then the presets.
+  const usedModels = useMemo(() => {
+    const seen = new Map<string, ModelChoice>();
+    for (const e of experiments.data ?? []) {
+      const m = e.definition.model;
+      if (!m) continue;
+      const choice = { label: `${m.provider} · ${m.model}${m.endpoint ? ` @ ${m.endpoint}` : ""}${m.credentialRef ? ` · ${m.credentialRef}` : ""}`, provider: m.provider, model: m.model, endpoint: m.endpoint, credentialRef: m.credentialRef };
+      if (!seen.has(choiceKey(choice))) seen.set(choiceKey(choice), choice);
+    }
+    return [...seen.values()];
+  }, [experiments.data]);
+  const pick = (value: string) => {
+    const [group, index] = value.split(":");
+    const choice = (group === "used" ? usedModels : PRESETS)[Number(index)];
+    if (!choice) return;
+    setForm((f) => ({ ...f, useModel: true, provider: choice.provider, model: choice.model, endpoint: choice.endpoint ?? "", credentialRef: choice.credentialRef ?? "" }));
+  };
+  const credentialId = form.credentialRef.trim().replace(/^credential-ref:/, "");
+
   return (
     <div className="page">
       <div className="page-head">
@@ -323,21 +362,57 @@ export function Configure({ params }: { params: URLSearchParams }) {
               </button>
             </div>
             <fieldset disabled={!canWrite} className="form-grid">
+              <Field label="Pick a model" hint="Fills the fields below; each experiment keeps its own model, so different runs can use different models and keys." wide>
+                <select value="" onChange={(e) => pick(e.target.value)}>
+                  <option value="">Choose a model setup…</option>
+                  {usedModels.length > 0 && (
+                    <optgroup label="Used by your experiments">
+                      {usedModels.map((m, i) => (
+                        <option key={choiceKey(m)} value={`used:${i}`}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="Presets">
+                    {PRESETS.map((m, i) => (
+                      <option key={choiceKey(m)} value={`preset:${i}`}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+              </Field>
               <label className="check wide">
                 <input type="checkbox" checked={!form.useModel} onChange={(e) => set("useModel", !e.target.checked)} /> No model (reference control)
               </label>
               {form.useModel && (
                 <>
                   <Field label="Provider">
-                    <input value={form.provider} onChange={(e) => set("provider", e.target.value)} placeholder="custom, openai, anthropic, ollama…" />
+                    <input value={form.provider} onChange={(e) => set("provider", e.target.value)} placeholder="anthropic, openai-compatible, …" />
                   </Field>
                   <Field label="Model">
                     <input value={form.model} onChange={(e) => set("model", e.target.value)} placeholder="qwen2.5-coder-3b" />
                   </Field>
                   <Field label="Endpoint">
-                    <input value={form.endpoint} onChange={(e) => set("endpoint", e.target.value)} placeholder="http://127.0.0.1:8081/v1/chat/completions" />
+                    <input value={form.endpoint} onChange={(e) => set("endpoint", e.target.value)} placeholder="https://api.anthropic.com or http://127.0.0.1:11434/v1" />
                   </Field>
-                  <Field label="Credential reference" hint="A reference only (credential-ref:<id>). Enter the API key itself in Studio → Models (or `feltkit credential set <provider>`); it is stored in the host's custody, never here. Secret values are refused.">
+                  <Field
+                    label="Credential reference"
+                    hint={
+                      <>
+                        Names the key, never holds it; empty for a server that needs no key. One reference per provider or account (
+                        <code>credential-ref:anthropic</code>, <code>credential-ref:openai</code>, …). Set its value in Studio → Services → Credentials
+                        {credentialId ? (
+                          <>
+                            {" "}
+                            or <code>npx feltkit credential set {credentialId}</code>
+                          </>
+                        ) : null}
+                        ; the harness uses it from there in local development.
+                      </>
+                    }
+                  >
                     <input value={form.credentialRef} onChange={(e) => set("credentialRef", e.target.value)} placeholder="credential-ref:local-llm" autoComplete="off" />
                   </Field>
                   <Field label="Temperature">
