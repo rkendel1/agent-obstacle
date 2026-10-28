@@ -31,7 +31,8 @@
     "courses:export": "node harness/courses/cli.mjs export",
     "seed:courses": "node scripts/seed-courses.mjs",
     "model:sync": "node scripts/model-sync.mjs",
-    "harness:key": "node scripts/harness-key.mjs"
+    "harness:key": "node scripts/harness-key.mjs",
+    "harness:e2e": "node scripts/harness-e2e.mjs"
   },
   "dependencies": {
     "@feltdb/feltkit": "^0.3.0",

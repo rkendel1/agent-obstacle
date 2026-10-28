@@ -1,0 +1,264 @@
+{
+  "recordedAt": "2026-10-28T16:55:56.313Z",
+  "mode": "end-to-end through the real FeltKit app (AppPort, harness API key) + Durable Work on feltdb-server 0.3.0",
+  "app": "http://127.0.0.1:3100",
+  "runId": "mvscugwy40a461dedda7",
+  "course": "course-000-calibration@v1",
+  "adapter": "stack-agent",
+  "appRunState": "terminal",
+  "appOutcome": "FAIL",
+  "workloadId": "workload_d9f3cb6d7804eae4db790a5e",
+  "result": {
+    "runId": "mvscugwy40a461dedda7",
+    "workloadId": "workload_d9f3cb6d7804eae4db790a5e",
+    "outcome": "FAIL",
+    "failureClass": "agent",
+    "claims": {
+      "agentTerminalState": "escalated",
+      "agentSaysVerified": false,
+      "summary": "The current execution did not satisfy the goal. The function `span_len` is still off by one, and the unit test `single_point_range_has_one_element` fails."
+    },
+    "observed": {
+      "exitCode": 1,
+      "durationMs": 57197,
+      "timedOut": false
+    },
+    "evaluation": {
+      "evaluatorVersion": "@aoc/evaluator@1.0.0+f10f3dbabccf",
+      "acceptance": "fail",
+      "regression": "fail",
+      "checks": [
+        {
+          "id": "base-commit",
+          "result": "pass",
+          "detail": "HEAD 48db082123af (base 48db082123af)"
+        },
+        {
+          "id": "diff",
+          "result": "pass",
+          "detail": "0 file(s) changed: none"
+        },
+        {
+          "id": "no-evaluator-paths",
+          "result": "pass"
+        },
+        {
+          "id": "forbidden-paths",
+          "result": "pass"
+        },
+        {
+          "id": "budgets",
+          "result": "pass"
+        },
+        {
+          "id": "workspace-only",
+          "result": "pass",
+          "detail": "watched: fixture, evaluator"
+        },
+        {
+          "id": "regression",
+          "result": "fail",
+          "detail": "exit 101; passed 1, failed 1; failing: tests::single_point_range_has_one_element"
+        },
+        {
+          "id": "acceptance:tests/span_acceptance.rs",
+          "result": "fail",
+          "detail": "exit 101; passed 1, failed 2"
+        }
+      ],
+      "violations": []
+    },
+    "metrics": {
+      "agentDurationMs": 57197,
+      "turns": 2,
+      "executions": 1,
+      "modelCallsReported": 2,
+      "modelCallsObserved": 2,
+      "inputTokensReported": 3232,
+      "outputTokensReported": 63,
+      "promptTokensObserved": 3232,
+      "completionTokensObserved": 63,
+      "paxTestsObserved": 0,
+      "paxTestsInjected": 0,
+      "filesChanged": 0,
+      "modelFailures": 0,
+      "malformedReplies": 0,
+      "interruptions": 0,
+      "evaluationMs": 499,
+      "attempts": 1
+    },
+    "recovery": [
+      {
+        "obstacleId": "transient-test-failure",
+        "injected": false,
+        "recognized": null,
+        "recovered": null,
+        "detail": "the agent never ran `pax test`, so the obstacle was not triggered"
+      }
+    ],
+    "reproducibility": {
+      "courseDigest": "sha256:6a30c53b2b903460a88df9f70b5210b24cf64e0c2a4c1862ffcbe5269021878c",
+      "fixtureDigest": "sha256:41795737218ebd84c0791d8e8f40438a2b35cb15dbc649c15671f8e8f132fbc0",
+      "finalTreeDigest": "sha256:41795737218ebd84c0791d8e8f40438a2b35cb15dbc649c15671f8e8f132fbc0",
+      "experimentDigest": "sha256:a1596225ff16ef7ca39f3cf562442ec2157478300378c713016b54283aad98b7",
+      "agentVersion": "stack-agent stack-agent 0.1.0",
+      "paxVersion": "pax 0.5.0",
+      "evaluatorVersion": "@aoc/evaluator@1.0.0+f10f3dbabccf",
+      "workAuthorityRelease": "feltdb-server 0.3.0",
+      "deterministic": false,
+      "note": "Model-driven agent runs are not deterministic (even at temperature 0); repeat runs to compare."
+    },
+    "startedAt": "2026-10-28T16:54:53.278Z",
+    "completedAt": "2026-10-28T16:55:55.309Z"
+  },
+  "eventsFromApp": {
+    "count": 38,
+    "byKind": {
+      "stage": 15,
+      "environment": 1,
+      "verification": 17,
+      "model.call": 3,
+      "agent.launch": 1,
+      "claim": 1
+    },
+    "notable": [
+      {
+        "seq": 16,
+        "source": "agent",
+        "kind": "claim",
+        "summary": "agent claims: escalated; verified=false"
+      },
+      {
+        "seq": 25,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "base-commit: pass — HEAD 48db082123af (base 48db082123af)"
+      },
+      {
+        "seq": 26,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "diff: pass — 0 file(s) changed: none"
+      },
+      {
+        "seq": 27,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "no-evaluator-paths: pass"
+      },
+      {
+        "seq": 28,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "forbidden-paths: pass"
+      },
+      {
+        "seq": 29,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "budgets: pass"
+      },
+      {
+        "seq": 30,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "workspace-only: pass — watched: fixture, evaluator"
+      },
+      {
+        "seq": 31,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "regression: fail — exit 101; passed 1, failed 1; failing: tests::single_point_range_has_one_element"
+      },
+      {
+        "seq": 32,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "acceptance:tests/span_acceptance.rs: fail — exit 101; passed 1, failed 2"
+      },
+      {
+        "seq": 33,
+        "source": "evaluator",
+        "kind": "verification",
+        "summary": "outcome FAIL (agent); the agent's claim was not consulted"
+      }
+    ]
+  },
+  "evidenceFromApp": [
+    {
+      "evidenceId": "digest:prepare",
+      "kind": "digest",
+      "digest": "sha256:eb1f1e1cae66d9b5497f11a13aadd4920b888c14a0b6834cd9a63f65a98ef423"
+    },
+    {
+      "evidenceId": "pax.observation:before",
+      "kind": "pax.observation",
+      "digest": "sha256:1990c375f8bc7c4fc4ad42762a5e843af6f0926259786c08dda5ceb7cdd41b1a"
+    },
+    {
+      "evidenceId": "agent:report.1.json",
+      "kind": "agent.report",
+      "digest": "sha256:3b88924c7176b4d9abfd96d13baf1d27a2d18649eccbd94ae3d079b78a4644d9"
+    },
+    {
+      "evidenceId": "agent:stderr.1.log",
+      "kind": "log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "evidenceId": "agent:agent-state-show.json",
+      "kind": "agent.report",
+      "digest": "sha256:39f6075153e10283368594b087dac26fd85c56994d4f4828b7e3b581fc38a716"
+    },
+    {
+      "evidenceId": "process:agent",
+      "kind": "process",
+      "digest": "sha256:dc22e4db11750838b3188a9e93b6697f9a35dbb599c61440cd91a46810d1bfed"
+    },
+    {
+      "evidenceId": "log:model-calls",
+      "kind": "log",
+      "digest": "sha256:0daa580f88f54a431f7d342023d6c41e4752e988f00d897538d15fa0368c2b3d"
+    },
+    {
+      "evidenceId": "pax.observation:after",
+      "kind": "pax.observation",
+      "digest": "sha256:bb85beac16f44e216e38aab909d7b76d666920175d9641d50c08daf2aeb41399"
+    },
+    {
+      "evidenceId": "diff:agent",
+      "kind": "diff",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "evidenceId": "log:git-status",
+      "kind": "log",
+      "digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "evidenceId": "digest:final",
+      "kind": "digest",
+      "digest": "sha256:60e7128d0f950824e68f4a172b77441a87a02ed0a6e4705131340730d7f4cad3"
+    },
+    {
+      "evidenceId": "acceptance:verdict",
+      "kind": "acceptance",
+      "digest": "sha256:635fd30ec7b4219c50d5c3bdf25375a206ea8d02e387a86f3c3882d06f579f8d"
+    },
+    {
+      "evidenceId": "acceptance:regression",
+      "kind": "acceptance",
+      "digest": "sha256:727dba63bbc145274df6edaa4956b967feafb45bd4b67055d9ea0f7ad4c9dd18"
+    },
+    {
+      "evidenceId": "acceptance:acceptance-tests_span_acceptance.rs",
+      "kind": "acceptance",
+      "digest": "sha256:58373968061fce4d3273d9b9ca66c498d30d666ba6404c3c40461dd12d10934b"
+    },
+    {
+      "evidenceId": "log:run-result",
+      "kind": "log",
+      "digest": "sha256:5ed4c0765a7df075d353861166b31bf79b9f2624b123197f68e85a1a4af274f1"
+    }
+  ]
+}
