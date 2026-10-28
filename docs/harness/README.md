@@ -141,7 +141,16 @@ unavailable before any work), ERROR (harness/evaluator fault), CANCELLED. The ag
 
 ## Recorded runs
 
-`docs/harness/runs/` holds small JSON summaries (no secrets, no prompt bodies):
+`docs/harness/runs/` holds small JSON summaries (no secrets, no prompt bodies). `*.app.json` went end to end through
+the real FeltKit app (AppPort, harness API key) and Durable Work on feltdb-server 0.3.0; `*.local.json` went through
+Durable Work with the local sink (`harness:run --durable`; null-control is harness-only).
 
-- `course-001-base-regression-determinism.json` — the base regression ran 3/3 green; why integration-e2e is flaky.
-- `*.app.json` — end-to-end through the real app (AppPort + Durable Work); `*.local.json` — `harness:run` (no app).
+| File | Course | Agent | Outcome | Notes |
+| --- | --- | --- | --- | --- |
+| `course-000-calibration-v1-reference-control.app.json` | course-000 | reference-control (control) | PASS | regression 2/2, hidden 3/3 |
+| `course-000-calibration-v1-null-control.local.json` | course-000 | null-control (base) | FAIL | regression 1/2, hidden 1/3 |
+| `course-001-ddmrv-v1-reference-control.app.json` | course-001 | reference-control (control) | PASS | regression 1660 passed, hidden 8/8 |
+| `course-001-ddmrv-v1-null-control.local.json` | course-001 | null-control (base) | FAIL | regression 1660 passed, hidden 2/8 |
+| `course-000-calibration-v1-stack-agent-qwen3b.app.json` | course-000 | stack-agent 0.1.0 + Qwen2.5-Coder-3B q4_k_m (CPU) | FAIL | 2 model calls, 1 read, then `escalated` without writing or running `pax test` (the transient obstacle was never triggered); claim recorded, not consulted |
+| `course-000-calibration-v1-patch-agent-qwen3b.app.json` | course-000 | patch-agent + the same 3B | FAIL | recognized and recovered from the injected transient `pax test` failure, reproduced the failure, 3 patches that did not apply |
+| `course-001-base-regression-determinism.json` | course-001 | — | — | the base regression ran 3/3 green; why integration-e2e is flaky |
