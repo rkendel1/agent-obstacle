@@ -296,7 +296,7 @@ export function Configure({ params }: { params: URLSearchParams }) {
                 <input value={form.agentVersion} onChange={(e) => set("agentVersion", e.target.value)} placeholder="e.g. 0.1.0" />
               </Field>
               <Field label="Capabilities subset" hint={courseCaps.length ? <>Course offers: <Chips items={courseCaps} /></> : "Comma-separated; empty = everything the course allows."} wide>
-                <input value={form.capabilities} onChange={(e) => set("capabilities", e.target.value)} placeholder="shell, read_file, write_file" />
+                <input value={form.capabilities} onChange={(e) => set("capabilities", e.target.value)} placeholder="project.read, project.search, project.write, pax.test" />
               </Field>
             </fieldset>
           </Card>
@@ -337,7 +337,7 @@ export function Configure({ params }: { params: URLSearchParams }) {
                   <Field label="Endpoint">
                     <input value={form.endpoint} onChange={(e) => set("endpoint", e.target.value)} placeholder="http://127.0.0.1:8081/v1/chat/completions" />
                   </Field>
-                  <Field label="Credential reference" hint="A reference only (credential-ref:<id>); the value lives in the host as FELTKIT_CREDENTIAL_<ID>. Secret values are refused.">
+                  <Field label="Credential reference" hint="A reference only (credential-ref:<id>). Enter the API key itself in Studio → Models (or `feltkit credential set <provider>`); it is stored in the host's custody, never here. Secret values are refused.">
                     <input value={form.credentialRef} onChange={(e) => set("credentialRef", e.target.value)} placeholder="credential-ref:local-llm" autoComplete="off" />
                   </Field>
                   <Field label="Temperature">
