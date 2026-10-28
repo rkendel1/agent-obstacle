@@ -39,7 +39,7 @@ const SECRET_KEYS = /^(api[_-]?key|apikey|secret|password|passwd|token|access[_-
 export function assertNoSecrets(value: unknown, path = "definition"): void {
   if (typeof value === "string") {
     for (const pattern of SECRET_PATTERNS) {
-      if (pattern.test(value)) fail("INVALID_ARGUMENT", `${path} looks like a secret value. Store secrets in the host (FELTKIT_CREDENTIAL_<ID>) and reference them as credential-ref:<id>.`, { reason: "secret_value", path });
+      if (pattern.test(value)) fail("INVALID_ARGUMENT", `${path} looks like a secret value. Enter the key in Studio → Models (or "feltkit credential set <provider>") and reference it here as credential-ref:<id>.`, { reason: "secret_value", path });
     }
     return;
   }
