@@ -22,6 +22,13 @@ truncated silently). Secrets never appear: model credentials are `credential-ref
 | `runs.evidence.add@1` | mutation | `{ runId, items: EvidenceItem[] }` | `{ added: number }` — idempotent on `(runId, evidenceId)` |
 | `runs.completed@1` | mutation | `RunResult` | `{ ok: true }` — idempotent; a second, different result for the same run is refused |
 
+Not for the harness (role `admin` only; listed so that discovery is not mistaken for authority):
+
+| Capability | Kind | Input | Output |
+| --- | --- | --- | --- |
+| `courses.publish@1` | mutation | `{ course: CourseDocument, digest?: string }` | `{ courseVersionId, ref, digest, created }` — idempotent on the document; a different document under a published `id@version` is refused |
+| `models.environment.record@1` | mutation | `{ ready, source, provider?, model?, endpoint?, protocol?, credentialRef?, credentialPresent?, problems? }` | `{ ok: true, observationId }` — the environment's Intelligence selection as observed (`npm run model:sync`); never a secret |
+
 ```ts
 type PendingRun = {
   runId: string; courseVersionId: string; courseDigest: string;
@@ -72,3 +79,119 @@ type RunResult = {
 
 The app never accepts a `PASS` unless `evaluation.acceptance === "pass"` and no critical violation is completed;
 it refuses an inconsistent result (defense in depth; the evaluator already applies this rule).
+
+## Implementation notes (app v1.0) — binding details
+
+These complete the contract above; the app implements exactly this (`feltkit/harness.ts`, tests in
+`tests/harness.test.ts`).
+
+### Wire format and authentication
+
+`POST <app>/appport` (development: `http://localhost:3000/appport`), `Content-Type: application/json`,
+`Authorization: Bearer <api key>`. Discovery: `GET /.well-known/appport`, manifest `GET /appport/manifest`.
+
+```json
+{ "protocol": "appport/1", "type": "request", "requestId": "<unique>",
+  "capability": { "name": "runs.admitted", "version": 1 },
+  "input": { "runId": "…", "workloadId": "…", "workAuthority": { "url": "…", "namespace": "aoc", "release": "feltdb-server 0.3.0" } },
+  "idempotencyKey": "admit:<runId>" }
+```
+
+Response: `{ "type": "response", "requestId", "ok": true, "output": … }` or
+`{ "ok": false, "error": { "code", "message", "details"? } }` (HTTP 200 either way).
+
+- Every API key of this app holds exactly the role `harness` (`services.apiKeys.roles`). Development: create one with
+  `npm run harness:key -- --out <file>` (as the dev admin, through AppPort Services' own API-key routes); it is
+  shown once. Revoke in Studio → Services → API keys.
+- `idempotencyKey` is for **mutations only**. Queries (`runs.pending`, `runs.cancellations`, `courses.version`)
+  refuse one in development (`INVALID_REQUEST`, `IDEMPOTENCY_KEY_UNSUPPORTED`). Replaying a key returns the stored
+  response without running the mutation again (durable across restarts). Independently of keys, every mutation is
+  idempotent by its content as described below, so a retry with a new key is also safe.
+
+### Errors
+
+| Code | Meaning | Harness action |
+| --- | --- | --- |
+| `INVALID_INPUT` with `details.reason` | refused: the report contradicts what is recorded or breaks a rule | do not retry the same report; log it |
+| `CONFLICT` | a concurrent write touched the same records (FeltDB commit fence); nothing was written | retry (bounded, with backoff) |
+| `NOT_FOUND` (`details.reason: "unknown_run"`) | unknown run / course version | — |
+| `PAYLOAD_TOO_LARGE` | a bound below was exceeded; nothing was written | split or shrink |
+| `FORBIDDEN` / `UNAUTHORIZED` | the key lacks the permission / is invalid or revoked | — |
+
+`details.reason` values: `workload_mismatch`, `not_admitted`, `invalid_state`, `stale_fencing_token`,
+`run_terminal`, `invalid_time`, `invalid_json`, `duplicate_seq`, `invalid_digest`, `digest_mismatch`,
+`no_content`, `evidence_conflict`, `result_conflict`, `course_digest_mismatch`, `experiment_digest_mismatch`,
+`inconsistent_result` (with `details.problems`), `too_large`, `too_many_events`, `too_much_evidence`,
+`too_many_stages`.
+
+### Digests
+
+`digest = "sha256:" + hex(sha256(utf8(canonicalJson(value))))`. Canonical JSON: object keys sorted by UTF-16 code
+unit order (JavaScript's default `sort()`), no whitespace, arrays in order, strings and numbers exactly as
+`JSON.stringify` writes them, `undefined` members omitted (RFC 8785 for integer/ordinary-decimal documents).
+Course digest = over the whole course.json document; experiment digest = over
+`{ agent, model, budgets, obstacles, environment }`. Inputs accept `sha256:<hex>` or bare 64-hex; outputs are always
+`sha256:<hex>`. Evidence `digest` is `sha256` of the UTF-8 `content` when content is sent (checked), else of the
+referenced file (not checked by the app).
+
+```js
+const canonical = (v) => v === null || typeof v !== "object" ? JSON.stringify(v)
+  : Array.isArray(v) ? `[${v.map(canonical).join(",")}]`
+  : `{${Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => `${JSON.stringify(k)}:${canonical(v[k])}`).join(",")}}`;
+```
+
+### Types not spelled out above
+
+```ts
+type CourseVersion = {
+  courseVersionId: string; courseId: string; version: string; ref: string;   // ref = `${courseId}@${version}`
+  status: "draft" | "published"; digest: string; publishedAt: string | null;
+  spec: CourseDocument;                  // the course.json exactly as published (no evaluator files)
+};
+type CourseDocument = {                  // courses/<course>/<version>/course.json
+  identity: { id: string /* lowercase slug */; version: string; name: string; description: string };
+  objective: string | object; environment: unknown; capabilities: unknown; constraints: unknown; obstacles: unknown;
+  acceptance: unknown; scoring: unknown; evidence: unknown; cleanup: unknown;   // object, array or string; shape owned by the harness
+  meta: { skills: string[]; difficulty: string; kind: "deterministic" | "randomized" | "adversarial";
+          expectedRuntimeSecs?: number; limits?: object; compatible?: unknown };
+};
+```
+
+The Library shows, when present: `acceptance.summary` and `acceptance.checks` (ids or objects with `id`),
+`scoring.dimensions`, `capabilities.tools`, `obstacles` (array, ids), `meta.limits`, `meta.compatible`.
+
+`ExperimentSnapshot` conventions: `agent.options.capabilities` (string[]: the subset the agent may use),
+`agent.options.recovery` (`{ allowRetry, maxRecoveries? }`), `agent.options.flags` (experimental flags);
+`model.inference` (temperature, top_p, seed, …). `model` is `null` for `reference-control`. Secret values are
+refused anywhere in a definition; only `credential-ref:` strings.
+
+`RunResult`: the top level is strict (unknown keys refused); `claims`, `observed`, `evaluation`, check/violation/
+recovery items and `reproducibility` accept additional fields. Suggested `metrics` keys (any number-or-null key is
+accepted and compared): `modelCalls`, `toolExecutions`, `turns`, `inputTokens`, `outputTokens`, `totalTokens`,
+`filesChanged`, `testsRun`, `costUsd`. `null` = not observed.
+
+### Behaviour per capability
+
+- `runs.pending`: `limit` 1–100 (default 20). Excludes runs with a cancel request. `courseDigest` and
+  `experiment.digest` are the values the harness must reproduce/verify before running.
+- `runs.admitted`: same `workloadId` again → `ok`; different → `workload_mismatch`. If a person cancelled the run
+  **before admission**, the app has already made it terminal (`CANCELLED`, `cancelledBeforeAdmission`); a racing
+  `runs.admitted` is still accepted and binds the workload, which then appears in `runs.cancellations` so the
+  dispatcher cancels it; only a `CANCELLED` result is accepted for such a run.
+- `runs.stage`: requires the bound `workloadId`. A replay of the same `(stage, status, attemptNumber, fencingToken)`
+  → `ok`. A `fencingToken` lower than the highest recorded → `stale_fencing_token`. New stage reports after the
+  result → `run_terminal`. `at` must be ISO-8601; `detail` ≤ 8 KiB JSON; ≤ 200 stage reports per run. The first
+  stage report moves the projection to `running`.
+- `runs.events.append`: ≤ 200 events per call, ≤ 20 000 per run, `summary` ≤ 2000 chars, `data` ≤ 16 KiB JSON,
+  `kind` ≤ 64 chars. First write wins per `(runId, seq)`; `appended` counts only new events. The same `seq` twice
+  in one call with different content → `duplicate_seq`. The UI reads events in `seq` order. Lanes:
+  `source: "agent"` = Agent claims; `runtime | pax | harness` = Runtime observed; `evaluator` = Evaluator verified.
+  Event kinds the Live Run screen counts: `model.call`, `tool.call`, `tool.result`, `file.change`, `failure`,
+  `error`, `recovery`, `test`, `pax.test`, and `budget` with `data: { turnsUsed, executionsUsed }`.
+- `runs.evidence.add`: ≤ 50 items per call, ≤ 2000 per run, `content` ≤ 256 KiB. Each item needs `content` or
+  `path`. Same `(runId, evidenceId)` with the same digest → skipped; different digest → `evidence_conflict`.
+- `runs.completed`: refused (`inconsistent_result`) when: `PASS` without `evaluation.acceptance === "pass"`;
+  `PASS` with a completed critical violation; `PASS` with a `failureClass`; a violation `completed` but not
+  `attempted`; `reproducibility.evaluatorVersion !== evaluation.evaluatorVersion`; a recovery entry recognized or
+  recovered but not injected. Also refused: `workloadId` not the bound one, `courseDigest`/`experimentDigest` not the
+  run's, `completedAt < startedAt`, result > 256 KiB. The identical result again → `ok`.
