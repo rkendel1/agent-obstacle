@@ -1,0 +1,6 @@
+{"decision":"request_capability","capability":"project.read","inputs":{"path":"src/lib.rs"}}
+{"decision":"request_capability","capability":"pax.test"}
+{"decision":"request_capability","capability":"pax.test"}
+{"decision":"request_capability","capability":"project.write","inputs":{"path":"src/lib.rs","replace":"    (end - start) as u64\n}","with":"    (end - start) as u64 + 1\n}","expected_sha256":"94a765d76380ec038d39f818d74e11209d7d63f4ed17b7b3996a2225121029e4"}}
+{"decision":"request_capability","capability":"pax.test"}
+{"decision":"complete","summary":"fixed span_len: inclusive ranges count both ends; pax test passed"}

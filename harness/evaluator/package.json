@@ -1,0 +1,7 @@
+{
+  "name": "@aoc/evaluator",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent Obstacle Course independent evaluator. Its version string is name@version+<sha256 of its own files, 12 hex>."
+}
