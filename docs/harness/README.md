@@ -161,9 +161,11 @@ only (never from `scoring`).
 
 ## Known gaps
 
-- **PAX 0.5.0 cannot interpret the T4 (pnpm → vitest) suite**: `pax --json test` runs it (exit 0) but reports
-  `status: unsupported, reason: interpretation-unsupported`, so Stack-Agent can never self-verify course-001 (no exit
-  0). The evaluator scores independently; course-001's *Verify* dimension is `null`, never estimated.
+- **PAX now reads the T4 (pnpm → vitest) suite.** The pinned build (rkendel1/pax c70680c, still `pax 0.5.0`) reports
+  `status: passed, reason: tests-passed` with counts (1,662 passed, 8 ignored at the base), so Stack-Agent can
+  self-verify course-001. Earlier 0.5.0 builds reported `unsupported, interpretation-unsupported`; course-001@v2's
+  document still describes that (it is immutable; the next version will update it). PAX `main` (aab5039) does not
+  compile (the "mix" commit b0eddbd), so c70680c is the newest PAX build that does.
 - **Stack-Agent's capabilities are fixed** (10 compiled-in project operations); `work` has no AppPort discovery and no
   way to add capabilities — a course can only narrow them (`--kind inspect`).
 - **`.stack-agent/` is always written into the workspace**; the harness excludes it (`.git/info/exclude` + diff

@@ -44,13 +44,18 @@ const countTests = () => { try { return readFileSync(config.log, 'utf8').split('
 const log = (entry) => { mkdirSync(dirname(config.log), { recursive: true }); appendFileSync(config.log, JSON.stringify(entry) + '\n'); };
 
 // process-interruption obstacle with a `pax.test` trigger: right after the Nth `pax test` finishes,
-// SIGKILL the whole process group (the agent and everything it started) before the agent can read
+// SIGKILL the agent's process group (the agent and everything it started) before the agent can read
 // the result. Deterministic: the point is defined by the course, and fires once (marker file).
+// The agent's group comes from its pgid file: an agent may run `pax test` in a group of its own
+// (Stack-Agent does), so this process's group is not necessarily the agent's.
 function maybeInterrupt(n) {
   const it = config.interrupt;
   if (!it || n == null || n < it.afterTests || existsSync(it.marker)) return;
   writeFileSync(it.marker, new Date().toISOString());
   log({ op: 'interrupt', n, obstacleId: it.obstacleId, at: new Date().toISOString() });
+  let pgid = null;
+  try { pgid = Number(readFileSync(it.pgidFile, 'utf8').trim()) || null; } catch { /* no pgid file */ }
+  if (pgid) { try { process.kill(-pgid, 'SIGKILL'); } catch { /* already gone */ } }
   process.kill(0, 'SIGKILL');
 }
 

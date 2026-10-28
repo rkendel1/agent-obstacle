@@ -32,38 +32,61 @@ const children = [];
 let stopping = false;
 
 // ---------------------------------------------------------------------------------------------- 1. tools
+// The exact builds the harness runs, installed with cargo into ~/.cargo/bin. A different build already there is
+// replaced; AOC_PAX_BIN / AOC_STACK_AGENT_BIN / FELTDB_SERVER_BIN still choose another binary on purpose.
 const PINS = {
-  "feltdb-server": { tool: "feltdbServer", required: true, install: ["install", "feltdb-server", "--version", "0.3.0", "--locked"] },
-  pax: { tool: "pax", required: true, install: ["install", "--git", "https://github.com/rkendel1/pax", "--rev", "c3fb3b4", "--locked", "pax"] },
-  "stack-agent": { tool: "stackAgent", required: false, install: ["install", "--git", "https://github.com/rkendel1/stack-agent", "--rev", "96fa787", "--locked", "--bin", "stack-agent", "stack-agent"], why: "Stack-Agent runs" },
+  "feltdb-server": { tool: "feltdbServer", pkg: "feltdb-server", source: "0.3.0", required: true, install: ["install", "feltdb-server", "--version", "0.3.0", "--locked"] },
+  pax: { tool: "pax", pkg: "pax", source: "rev=c70680c", required: true, install: ["install", "--git", "https://github.com/rkendel1/pax", "--rev", "c70680c", "--locked", "pax"] },
+  "stack-agent": { tool: "stackAgent", pkg: "stack-agent", source: "rev=35d7af2", required: false, install: ["install", "--git", "https://github.com/rkendel1/stack-agent", "--rev", "35d7af2", "--locked", "--bin", "stack-agent", "stack-agent"], why: "Stack-Agent runs" },
 };
 const cargoBin = join(homedir(), ".cargo", "bin");
 process.env.PATH = [cargoBin, join(homedir(), ".local", "bin"), process.env.PATH].join(":");
 const onPath = (name) => spawnSync("sh", ["-c", `command -v ${name}`], { encoding: "utf8" }).stdout.trim() || null;
 const located = (name) => { const p = locate(...TOOL_FALLBACKS[PINS[name].tool]); return existsSync(p) ? p : null; };
 
+/** Whether cargo installed exactly the pinned build of `pin.pkg` (~/.cargo/.crates2.json). */
+function pinnedInstalled(pin) {
+  try {
+    const installs = JSON.parse(readFileSync(join(homedir(), ".cargo", ".crates2.json"), "utf8")).installs ?? {};
+    return Object.keys(installs).some((k) => k.startsWith(`${pin.pkg} `) && (pin.source.startsWith("rev=") ? k.includes(`?${pin.source}#`) : k.startsWith(`${pin.pkg} ${pin.source} (`)));
+  } catch { return false; }
+}
+
 async function tools() {
   for (const [name, pin] of Object.entries(PINS)) {
-    if (located(name)) continue;
+    const override = process.env[TOOL_FALLBACKS[pin.tool][0]];
+    if (override) {
+      if (existsSync(override)) { say(`${name}: using ${override} (${TOOL_FALLBACKS[pin.tool][0]})`); continue; }
+      if (pin.required) return fail(`${TOOL_FALLBACKS[pin.tool][0]}=${override} does not exist.`);
+    }
+    const target = join(cargoBin, name);
+    if (existsSync(target) && pinnedInstalled(pin)) { process.env[TOOL_FALLBACKS[pin.tool][0]] = target; continue; }
+    const why = existsSync(target) ? `replacing ${name} in ~/.cargo/bin with the pinned build (${pin.source})` : `installing ${name} (${pin.source}) with cargo`;
     if (has("--no-install") || !onPath("cargo")) {
-      const how = onPath("cargo") ? `cargo ${pin.install.join(" ")}` : "install Rust from https://rustup.rs, then rerun npm run dev";
+      const how = onPath("cargo") ? `cargo ${pin.install.join(" ")} --force` : "install Rust from https://rustup.rs, then rerun npm run dev";
+      if (located(name)) { say(`${name}: using ${located(name)}, which may not be the pinned build (${how})`); process.env[TOOL_FALLBACKS[pin.tool][0]] = located(name); continue; }
       if (pin.required) return fail(`${name} is required and not installed. ${how}`);
-      say(`${name} not installed: ${pin.why} will end ERROR until it is (${how}).`);
+      say(`${name} not installed: ${pin.why} will end BLOCKED until it is (${how}).`);
       continue;
     }
-    say(`installing ${name} with cargo (first run only; this can take several minutes)…`);
+    say(`${why} (this can take several minutes)…`);
     // Git installs use the machine's own git credentials (private repositories).
-    const r = spawnSync("cargo", pin.install, { stdio: "inherit", env: { ...process.env, CARGO_INCREMENTAL: "0", CARGO_NET_GIT_FETCH_WITH_CLI: "true" } });
-    if (r.status !== 0 || !located(name)) {
-      if (pin.required) return fail(`installing ${name} failed. Run: cargo ${pin.install.join(" ")}`);
-      say(`installing ${name} failed: ${pin.why} will end ERROR. Run: cargo ${pin.install.join(" ")}`);
+    const r = spawnSync("cargo", [...pin.install, "--force"], { stdio: "inherit", env: { ...process.env, CARGO_INCREMENTAL: "0", CARGO_NET_GIT_FETCH_WITH_CLI: "true" } });
+    if (r.status !== 0 || !existsSync(target)) {
+      if (pin.required && !located(name)) return fail(`installing ${name} failed. Run: cargo ${pin.install.join(" ")} --force`);
+      say(`installing ${name} failed${located(name) ? `; using ${located(name)}` : `: ${pin.why} will end BLOCKED`}. Run: cargo ${pin.install.join(" ")} --force`);
+      if (located(name)) process.env[TOOL_FALLBACKS[pin.tool][0]] = located(name);
+      continue;
     }
+    process.env[TOOL_FALLBACKS[pin.tool][0]] = target;
   }
   for (const [name, use] of [["cargo", "course-000 (Rust)"], ["pnpm", "course-001 (T4)"], ["git", "fixtures"]]) {
     if (!onPath(name)) say(`${name} not found: ${use} cannot be prepared or evaluated.`);
   }
-  // The harness child resolves the same paths; pin them so it uses exactly what was checked here.
-  for (const name of Object.keys(PINS)) if (located(name)) process.env[TOOL_FALLBACKS[PINS[name].tool][0]] = located(name);
+  for (const name of Object.keys(PINS)) {
+    const p = process.env[TOOL_FALLBACKS[PINS[name].tool][0]];
+    if (p) say(`${name}: ${spawnSync(p, ["--version"], { encoding: "utf8" }).stdout.trim().split("\n")[0] || p}`);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------- leftovers

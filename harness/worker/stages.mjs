@@ -161,7 +161,7 @@ const STAGE_IMPL = {
       } else recorder.emit({ source: 'harness', kind: 'recovery', summary: `relaunching stack-agent with task id ${ctx.runId} (resume from its durable record)` });
     }
     writeFileSync(startedMarker, nowIso());
-    const shim = installPaxShim({ binDir: join(runDir, 'bin'), logPath: join(runDir, 'artifacts', 'pax-calls.jsonl'), schedule: state.prepare.schedule, interruptViaShim: adapter.id === 'stack-agent' });
+    const shim = installPaxShim({ binDir: join(runDir, 'bin'), logPath: join(runDir, 'artifacts', 'pax-calls.jsonl'), schedule: state.prepare.schedule, interruptViaShim: adapter.id === 'stack-agent', pgidFile: join(runDir, 'agent.pgid') });
     const hooks = { onModelCall: null };
     const env = agentEnv({ runDir, paxBin: shim.bin });
     mkdirSync(join(runDir, 'target'), { recursive: true });

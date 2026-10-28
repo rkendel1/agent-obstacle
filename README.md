@@ -23,8 +23,10 @@ npm run dev
 
 That one command starts everything and keeps it running until Ctrl-C:
 
-1. checks the tools and, on the first run, installs the missing ones with `cargo` (`feltdb-server` 0.3.0, `pax`,
-   `stack-agent`; needs Rust from https://rustup.rs; `--no-install` to skip);
+1. checks the tools and installs the pinned builds with `cargo` into `~/.cargo/bin` when they are missing or a
+   different build is there (`feltdb-server` 0.3.0, `pax` @ c70680c, `stack-agent` @ 35d7af2; needs Rust from
+   https://rustup.rs; `--no-install` to skip; `AOC_PAX_BIN` / `AOC_STACK_AGENT_BIN` / `FELTDB_SERVER_BIN` choose
+   another binary on purpose);
 2. starts the FeltKit app on http://127.0.0.1:3000 (Studio: the Dashboard link it prints);
 3. publishes the courses (`courses/*/*/course.json`, idempotent);
 4. sets up (first run) and starts the work authority, a local `feltdb-server`;
