@@ -2,3 +2,6 @@ node_modules/
 dist/
 .feltkit/
 .harness/
+
+# Claude Code agent worktrees
+.claude/worktrees/
