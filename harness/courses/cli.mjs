@@ -11,7 +11,7 @@ const log = (m) => console.log(`[courses] ${m}`);
 
 switch (cmd) {
   case 'list':
-    for (const c of listCourses()) console.log(`${c.id}/${c.version}  ${c.digest}  ${c.doc.identity.title}`);
+    for (const c of listCourses()) console.log(`${c.id}/${c.version}  ${c.digest}  ${c.doc.identity.name}`);
     break;
   case 'validate': {
     let bad = 0;

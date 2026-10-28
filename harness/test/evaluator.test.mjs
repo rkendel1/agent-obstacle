@@ -35,7 +35,7 @@ test('course-000: the unchanged base FAILS and the reference-control PASSES (eva
   assert.equal(ref.result.reproducibility.deterministic, true);
   assert.equal(ref.result.evaluation.evaluatorVersion, evaluatorVersion());
   assert.match(evaluatorVersion(), /^@aoc\/evaluator@1\.0\.0\+[0-9a-f]{12}$/);
-  for (const k of ['courseDigest', 'fixtureDigest', 'finalTreeDigest', 'experimentDigest']) assert.match(ref.result.reproducibility[k], /^[0-9a-f]{64}$/);
+  for (const k of ['courseDigest', 'fixtureDigest', 'finalTreeDigest', 'experimentDigest']) assert.match(ref.result.reproducibility[k], /^sha256:[0-9a-f]{64}$/);
 });
 
 test('an agent that CLAIMS verified completion but leaves the tests failing is scored FAIL, with the claim recorded separately', async (t) => {

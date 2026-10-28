@@ -12,7 +12,10 @@ export class FakeApp {
   }
 
   addCourseVersion(courseVersionId, version) { this.courseVersions.set(courseVersionId, version); }
-  request(run) { this.runs.set(run.runId, { pending: run, workloadId: null, cancelRequested: false, result: null, stages: [], events: new Map(), evidence: new Map(), admittedWith: null }); }
+  request(run) {
+    if (!this.courseVersions.has(run.courseVersionId)) this.addCourseVersion(run.courseVersionId, { courseVersionId: run.courseVersionId, digest: run.courseDigest, status: 'published' });
+    this.runs.set(run.runId, { pending: run, workloadId: null, cancelRequested: false, result: null, stages: [], events: new Map(), evidence: new Map(), admittedWith: null });
+  }
   requestCancel(runId) { const r = this.runs.get(runId); r.cancelRequested = true; }
   run(runId) { return this.runs.get(runId); }
 

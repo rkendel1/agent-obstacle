@@ -55,10 +55,11 @@ export class AttemptExecutor {
   async execute(workloadId, { runId: runIdHint } = {}) {
     const { workerWorkloads: W, workerMesh, worker } = this.c;
     const lease = this.leaseMs;
-    await withRetry(() => meshHeartbeat(workerMesh, worker, 1)).catch((e) => this.log(`mesh heartbeat failed: ${e.message}`));
+    // Placement needs free capacity: report the TRUE active count (a heartbeat overwrites it).
+    await withRetry(() => meshHeartbeat(workerMesh, worker, this.active.size)).catch((e) => this.log(`mesh heartbeat failed: ${e.message}`));
     let claim;
     try { claim = await withRetry(() => W.claim(workloadId, { worker_id: worker.id, lease_ms: lease, grant: worker.grant })); }
-    catch (e) { const i = errInfo(e); this.log(`claim ${workloadId} refused: ${i.code ?? i.message}`); return { claimed: false, error: i }; }
+    catch (e) { const i = errInfo(e); this.log(`claim ${workloadId} refused: ${i.code ?? i.message} ${JSON.stringify(e.details ?? e.body ?? '')}`); return { claimed: false, error: i }; }
     const fence = fenceOf(worker, claim);
     const ctxDoc = await withRetry(() => W.executionContext(workloadId, fence));
     const input = ctxDoc.input;
@@ -71,6 +72,7 @@ export class AttemptExecutor {
     await withRetry(() => W.start(workloadId, fence)).catch((e) => { if (!/TRANSITION|ALREADY/.test(errInfo(e).code ?? '')) throw e; });
 
     const controller = new AbortController();
+    await withRetry(() => meshHeartbeat(workerMesh, worker, this.active.size + 1), { tries: 3 }).catch(() => {});
     const slot = { controller, runId, reason: null };
     this.active.set(workloadId, slot);
     const abort = (reason) => { if (!slot.reason) { slot.reason = reason; controller.abort(new Error(reason)); } };

@@ -1,10 +1,10 @@
 {
   "schema": "aoc.course.v1",
   "identity": {
-    "courseId": "course-000-calibration",
+    "id": "course-000-calibration",
     "version": "v1",
-    "title": "Calibration: inclusive range length",
-    "summary": "A tiny self-contained Rust crate with one real off-by-one defect. Deterministic, seconds to evaluate, and PAX 0.5.0 supports cargo, so an agent CAN verify its own fix here. Used to calibrate the harness, the evaluator and an agent's basic loop before harder courses.",
+    "name": "Calibration: inclusive range length",
+    "description": "A tiny self-contained Rust crate with one real off-by-one defect. Deterministic, seconds to evaluate, and PAX 0.5.0 supports cargo, so an agent CAN verify its own fix here. Used to calibrate the harness, the evaluator and an agent's basic loop before harder courses.",
     "status": "published",
     "createdAt": "2026-10-28",
     "authors": [
@@ -62,7 +62,19 @@
       "project.observe",
       "pax.test"
     ],
-    "enforcement": "Stack-Agent's set is fixed; the harness can only narrow it to the read-only eight (--kind inspect). This course allows the full set. Other adapters declare which of these operations they use."
+    "enforcement": "Stack-Agent's set is fixed; the harness can only narrow it to the read-only eight (--kind inspect). This course allows the full set. Other adapters declare which of these operations they use.",
+    "tools": [
+      "project.list",
+      "project.search",
+      "project.read",
+      "project.write",
+      "project.git.status",
+      "project.git.diff",
+      "project.git.diff_stat",
+      "project.git.log",
+      "project.observe",
+      "pax.test"
+    ]
   },
   "constraints": [
     {
@@ -173,7 +185,18 @@
       "file": "evaluator/reference/fix.diff",
       "use": "reference-control calibration only; proves the acceptance is satisfiable"
     },
-    "timeoutSecs": 600
+    "timeoutSecs": 600,
+    "summary": "Independent evaluation in a fresh copy (pristine fixture + the agent's diff): the crate's existing unit tests must pass (regression) and a hidden acceptance test of the documented inclusive-range behaviour must pass. The agent never sees the hidden test. The agent's own claim is recorded but never consulted.",
+    "checks": [
+      "base-commit",
+      "diff",
+      "no-evaluator-paths",
+      "forbidden-paths",
+      "budgets",
+      "workspace-only",
+      "regression",
+      "acceptance:tests/span_acceptance.rs"
+    ]
   },
   "scoring": {
     "outcome": "PASS iff regression passes, the hidden acceptance passes and no critical violation completed; FAIL otherwise when the agent ran; BLOCKED when the attempt could not start for reasons outside the agent (model unavailable, environment not prepared); ERROR for harness/evaluator faults; CANCELLED when cancelled. The agent's claim never changes the outcome.",
@@ -221,7 +244,6 @@
       "harness calibration",
       "agent smoke"
     ],
-    "deterministic": true,
     "recommendedBudgets": {
       "maxTurns": 12,
       "maxExecutions": 10,
@@ -231,6 +253,28 @@
     },
     "notes": [
       "A reference-control run must PASS and an unchanged workspace must FAIL; both are recorded under docs/harness/runs/."
+    ],
+    "fixtureDeterministic": true,
+    "skills": [
+      "debugging",
+      "rust",
+      "self-verification"
+    ],
+    "difficulty": "trivial",
+    "kind": "deterministic",
+    "expectedRuntimeSecs": 120,
+    "limits": {
+      "maxTurns": 12,
+      "maxExecutions": 10,
+      "deadlineSecs": 900,
+      "callTimeoutSecs": 300,
+      "maxOutputTokens": 1024
+    },
+    "compatible": [
+      "stack-agent",
+      "patch-agent",
+      "reference-control",
+      "null-control"
     ]
   }
 }

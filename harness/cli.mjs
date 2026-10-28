@@ -22,6 +22,7 @@ import { Dispatcher, overallMs } from './dispatcher/index.mjs';
 import { AttemptExecutor } from './worker/executor.mjs';
 import { AppSink, FileSink } from './worker/recorder.mjs';
 import { runDirect } from './worker/direct.mjs';
+import { experimentDigest } from './worker/stages.mjs';
 import { loadCourseRef } from './courses/index.mjs';
 import { getAdapter } from './agents/index.mjs';
 
@@ -47,7 +48,7 @@ export function buildExperiment({ adapter, model, endpoint, budgets, obstacles, 
     budgets, obstacles: obstacles === 'none' ? { enabled: false } : obstacles === 'default' ? { enabled: true } : { enabled: true, overrides: { variant: obstacles } },
     environment: { kind: 'local-isolated' },
   };
-  exp.digest = canonicalDigest(exp);
+  exp.digest = experimentDigest(exp);
   return exp;
 }
 

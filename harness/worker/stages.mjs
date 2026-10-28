@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { TOOLS } from '../lib/paths.mjs';
 import { canonicalDigest, treeDigest, readJSON, writeJSON, nowIso, bounded } from '../lib/util.mjs';
 import { run, groupAlive, terminateGroup } from '../lib/proc.mjs';
-import { findCourseByDigest, validateCourse, loadCourseDir } from '../courses/index.mjs';
+import { findCourseByDigest, validateCourse, loadCourseDir, bareDigest } from '../courses/index.mjs';
 import { prepareFixture, createWorkspace } from '../courses/fixtures.mjs';
 import { obstacleSchedule, installPaxShim, paxShimSummary, assessTransientRecovery } from '../obstacles/index.mjs';
 import { paxObserve, workspaceDiff, workspaceStatus } from '../evidence/index.mjs';
@@ -26,7 +26,8 @@ export class StageError extends Error {
 let paxVersionCache;
 const paxVersion = () => (paxVersionCache ??= run(TOOLS.pax, ['--version'], { timeoutMs: 10_000, env: { PATH: process.env.PATH, HOME: process.env.HOME } }).stdout.trim() || null);
 
-export const experimentDigest = (experiment) => { const { digest, ...rest } = experiment ?? {}; return canonicalDigest(rest); };
+/** The app's experiment digest: "sha256:" + hex over { agent, model, budgets, obstacles, environment }. */
+export const experimentDigest = (e = {}) => `sha256:${canonicalDigest({ agent: e.agent, model: e.model, budgets: e.budgets, obstacles: e.obstacles, environment: e.environment })}`;
 
 /**
  * @param {object} ctx
@@ -89,6 +90,8 @@ const STAGE_IMPL = {
       const v = await ctx.sink.courseVersion(input.courseVersionId).then((r) => r.version, (e) => { throw new StageError(`courses.version: ${e.message}`, 'harness'); });
       if (v?.digest && v.digest !== input.courseDigest) throw new StageError(`course version ${input.courseVersionId} digest ${v.digest} differs from the run's ${input.courseDigest}`, 'harness');
     }
+    const expd = experimentDigest(input.experiment);
+    if (input.experiment.digest && bareDigest(input.experiment.digest) !== bareDigest(expd)) throw new StageError(`experiment digest ${input.experiment.digest} does not reproduce (computed ${expd} over { agent, model, budgets, obstacles, environment })`, 'harness');
     const problems = validateCourse(course);
     if (problems.length) throw new StageError(`course ${course.id}/${course.version} is not valid: ${problems.join('; ')}`, 'harness');
     const schedule = obstacleSchedule(course.doc, input.experiment.obstacles);
@@ -121,7 +124,8 @@ const STAGE_IMPL = {
     const startedMarker = join(runDir, 'agent.started');
     if (existsSync(startedMarker)) {
       // Re-execution after a lost worker: an orphaned agent group must not keep running.
-      const pgid = Number(readFileSync(join(runDir, 'agent.pgid'), 'utf8').trim() || 0) || null;
+      const pgidFile = join(runDir, 'agent.pgid');
+      const pgid = existsSync(pgidFile) ? Number(readFileSync(pgidFile, 'utf8').trim() || 0) || null : null;
       if (pgid && groupAlive(pgid)) { await terminateGroup(pgid, { graceMs: 3000 }); recorder.emit({ source: 'harness', kind: 'recovery', summary: `killed the orphaned agent process group ${pgid} of the lost attempt` }); }
       if (adapter.id !== 'stack-agent') {
         createWorkspace({ tree: state.prepare.fixture.tree }, workspace);
@@ -181,7 +185,7 @@ const STAGE_IMPL = {
         recovery.push({ obstacleId: o.id, injected: fired && adapter.id === 'stack-agent', recognized: null, recovered: fired ? !!(lastReport?.agent_state?.resumed_from || (lastReport?.agent_state?.attempt ?? 0) > 1) : null, detail: fired ? `relaunched with task id ${ctx.runId}; resumed_from=${lastReport?.agent_state?.resumed_from ?? 'n/a'}, attempt=${lastReport?.agent_state?.attempt ?? 'n/a'}` : 'trigger not reached' });
       }
     }
-    if (ctx.attemptNumber > 1) recovery.push({ obstacleId: 'harness-worker-recovery', injected: !!process.env.AOC_FAULT_KILL, recognized: null, recovered: true, detail: `Durable Work attempt ${ctx.attemptNumber}: the agent stage was re-executed after a lost worker` });
+    if (ctx.attemptNumber > 1 && existsSync(join(runDir, '.fault-fired'))) recovery.push({ obstacleId: 'harness-worker-interruption', injected: true, recognized: null, recovered: true, detail: `Durable Work attempt ${ctx.attemptNumber}: the agent stage was re-executed after a lost worker` });
 
     writeJSON(join(runDir, 'agent-result.json'), result);
     for (const a of result.artifacts ?? []) if (existsSync(a.path)) recorder.addEvidence({ evidenceId: `agent:${a.label}`, kind: a.kind, label: a.label, source: 'agent', content: readFileSync(a.path, 'utf8') });
@@ -252,7 +256,7 @@ export function buildResult(ctx, state, failure, { cancelled = false } = {}) {
   const proxy = state.agent?.proxy ?? null;
   const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
   const evaluation = ev ?? { evaluatorVersion: evaluatorVersion(), acceptance: cancelled ? 'not-run' : failure ? 'not-run' : 'error', regression: 'not-run', checks: failure ? [{ id: `stage:${failure.stage}`, result: 'error', detail: bounded(failure.message, 600) }] : [], violations: [] };
-  const deterministicCourse = loadedMeta(state)?.deterministic === true;
+  const deterministicCourse = loadedMeta(state)?.kind === 'deterministic' && loadedMeta(state)?.fixtureDeterministic !== false;
   return {
     runId: ctx.runId, workloadId: ctx.workloadId ?? null, outcome: cls.outcome, ...(cls.failureClass ? { failureClass: cls.failureClass } : {}),
     claims: agent?.claims ?? {},
@@ -268,8 +272,8 @@ export function buildResult(ctx, state, failure, { cancelled = false } = {}) {
     },
     recovery: state.agent?.recovery ?? [],
     reproducibility: {
-      courseDigest: ctx.input.courseDigest, ...(state.prepare ? { fixtureDigest: state.prepare.fixture.fixtureDigest } : {}),
-      ...(state['observe-after'] ? { finalTreeDigest: state['observe-after'].finalTreeDigest } : {}),
+      courseDigest: ctx.input.courseDigest, ...(state.prepare ? { fixtureDigest: `sha256:${state.prepare.fixture.fixtureDigest}` } : {}),
+      ...(state['observe-after'] ? { finalTreeDigest: `sha256:${state['observe-after'].finalTreeDigest}` } : {}),
       experimentDigest: exp.digest ?? experimentDigest(exp), ...(agent?.version ? { agentVersion: `${agent.adapter} ${agent.version}` } : {}),
       paxVersion: paxVersion() ?? undefined, evaluatorVersion: evaluation.evaluatorVersion, ...(ctx.workAuthority ? { workAuthorityRelease: ctx.workAuthority.release } : {}),
       deterministic: !!(agent?.control && deterministicCourse),

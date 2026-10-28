@@ -14,7 +14,9 @@ import { readJSON, writeJSON, canonicalDigest, treeDigest } from '../lib/util.mj
 export const COURSE_SCHEMA = 'aoc.course.v1';
 export const REQUIRED_SECTIONS = ['identity', 'objective', 'environment', 'capabilities', 'constraints', 'obstacles', 'acceptance', 'scoring', 'evidence', 'cleanup', 'meta'];
 
-export const courseDigest = (doc) => canonicalDigest(doc);
+/** The app's digest form: "sha256:" + hex over canonical JSON of the whole course.json. */
+export const courseDigest = (doc) => `sha256:${canonicalDigest(doc)}`;
+export const bareDigest = (d) => String(d ?? '').replace(/^sha256:/, '');
 export const evaluatorDigest = (courseDir) => treeDigest(join(courseDir, 'evaluator'), { exclude: [] }).digest;
 export const directoryFixtureDigest = (courseDir, doc) => treeDigest(join(courseDir, doc.environment.fixture.path), { exclude: ['.git', 'target', 'node_modules'] }).digest;
 
@@ -34,7 +36,7 @@ export function listCourses(root = COURSES_DIR) {
 
 export function loadCourseDir(dir) {
   const doc = readJSON(join(dir, 'course.json'));
-  return { dir, doc, id: doc.identity?.courseId, version: doc.identity?.version, digest: courseDigest(doc), evaluatorDir: join(dir, 'evaluator') };
+  return { dir, doc, id: doc.identity?.id, version: doc.identity?.version, digest: courseDigest(doc), evaluatorDir: join(dir, 'evaluator') };
 }
 
 export function loadCourse(courseId, version, root = COURSES_DIR) {
@@ -50,7 +52,7 @@ export function loadCourseRef(ref, root = COURSES_DIR) {
 }
 
 export function findCourseByDigest(digest, root = COURSES_DIR) {
-  return listCourses(root).find((c) => c.digest === digest) ?? null;
+  return listCourses(root).find((c) => bareDigest(c.digest) === bareDigest(digest)) ?? null;
 }
 
 /** Structural and pin validation. Returns a list of problems (empty = valid). */
@@ -59,7 +61,9 @@ export function validateCourse(course) {
   const { doc, dir } = course;
   if (doc.schema !== COURSE_SCHEMA) problems.push(`schema must be ${COURSE_SCHEMA}`);
   for (const s of REQUIRED_SECTIONS) if (doc[s] === undefined) problems.push(`missing section ${s}`);
-  if (!doc.identity?.courseId || !doc.identity?.version) problems.push('identity.courseId and identity.version are required');
+  if (!/^[a-z0-9][a-z0-9._-]{0,79}$/.test(doc.identity?.id ?? '') || typeof doc.identity?.version !== 'string') problems.push('identity.id (lowercase slug) and identity.version (string) are required');
+  if (!doc.identity?.name) problems.push('identity.name is required');
+  if (!Array.isArray(doc.meta?.skills) || !['deterministic', 'randomized', 'adversarial'].includes(doc.meta?.kind) || doc.meta?.difficulty === undefined) problems.push('meta.skills (string[]), meta.difficulty and meta.kind (deterministic|randomized|adversarial) are required by the app');
   if (typeof doc.objective?.goal !== 'string' || !doc.objective.goal.trim()) problems.push('objective.goal is required');
   else if (Buffer.byteLength(doc.objective.goal) > 2000) problems.push('objective.goal exceeds 2,000 bytes (Stack-Agent goal limit)');
   if (!['directory', 'git'].includes(doc.environment?.fixture?.type)) problems.push('environment.fixture.type must be directory|git');

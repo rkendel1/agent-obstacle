@@ -10,6 +10,7 @@ import { readJSON, writeJSON, nowIso, sleep, canonicalDigest } from '../lib/util
 import { attemptRequest, errInfo, DEFINITION_ID, TERMINAL_STATES } from '../work-authority/client.mjs';
 import { AttemptExecutor, withRetry } from '../worker/executor.mjs';
 import { ADAPTERS } from '../agents/index.mjs';
+import { experimentDigest } from '../worker/stages.mjs';
 
 /** Overall Durable Work timeout for an attempt: agent deadline + prepare/evaluation allowance. */
 export function overallMs(experiment) {
@@ -78,7 +79,7 @@ export class Dispatcher {
         runId, workloadId, outcome: 'CANCELLED', claims: {}, observed: { durationMs: 0, timedOut: false },
         evaluation: { evaluatorVersion: (await import('../evaluator/index.mjs')).evaluatorVersion(), acceptance: 'not-run', regression: 'not-run', checks: [], violations: [] },
         metrics: {}, recovery: [],
-        reproducibility: { courseDigest: input.courseDigest ?? '', experimentDigest: input.experiment?.digest ?? canonicalDigest(input.experiment ?? {}), evaluatorVersion: '', workAuthorityRelease: this.state.release, deterministic: false, note: `cancelled at the work authority while ${w.attempts?.length ? 'no live worker held it' : 'unclaimed'}` },
+        reproducibility: { courseDigest: input.courseDigest ?? '', experimentDigest: input.experiment?.digest ?? experimentDigest(input.experiment ?? {}), evaluatorVersion: '', workAuthorityRelease: this.state.release, deterministic: false, note: `cancelled at the work authority while ${w.attempts?.length ? 'no live worker held it' : 'unclaimed'}` },
         startedAt: w.created_at ? new Date(Number(w.created_at) * 1000).toISOString() : nowIso(), completedAt: nowIso(),
       };
       result.reproducibility.evaluatorVersion = result.evaluation.evaluatorVersion;

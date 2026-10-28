@@ -18,7 +18,7 @@ test('both v1 courses are valid, pinned, and carry every required section', () =
   for (const c of courses) {
     assert.deepEqual(validateCourse(c), [], `${c.id} problems`);
     for (const s of REQUIRED_SECTIONS) assert.ok(c.doc[s] !== undefined, `${c.id} has ${s}`);
-    assert.match(c.digest, /^[0-9a-f]{64}$/);
+    assert.match(c.digest, /^sha256:[0-9a-f]{64}$/);
     for (const h of c.doc.acceptance.hidden) assert.ok(h.file.startsWith('evaluator/'));
     for (const k of c.doc.constraints) assert.ok(k.enforcement, `${c.id}/${k.id} states its enforcement`);
   }

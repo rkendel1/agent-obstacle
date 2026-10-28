@@ -40,7 +40,7 @@ export function pendingRun({ runId, course, adapter = 'reference-control', optio
     budgets: budgets ?? { maxTurns: 8, maxExecutions: 8, deadlineSecs: 120, callTimeoutSecs: 30 },
     obstacles, environment: { kind: 'local-isolated' },
   };
-  experiment.digest = canonicalDigest(experiment);
+  experiment.digest = `sha256:${canonicalDigest({ agent: experiment.agent, model: experiment.model, budgets: experiment.budgets, obstacles: experiment.obstacles, environment: experiment.environment })}`;
   return { runId, courseVersionId: `${course.id}@${course.version}`, courseDigest: course.digest, experiment, requestedAt: new Date().toISOString(), requestedBy: 'test' };
 }
 

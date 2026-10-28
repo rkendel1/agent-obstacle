@@ -9,9 +9,9 @@
 import { randomUUID } from 'node:crypto';
 
 export class AppPortError extends Error {
-  constructor(code, message, { capability, httpStatus, retryable } = {}) {
+  constructor(code, message, { capability, httpStatus, retryable, details } = {}) {
     super(`${capability ?? 'appport'}: ${code}: ${message}`);
-    this.code = code; this.capability = capability; this.httpStatus = httpStatus; this.retryable = !!retryable;
+    this.code = code; this.capability = capability; this.httpStatus = httpStatus; this.retryable = !!retryable; this.details = details;
   }
 }
 
@@ -28,7 +28,18 @@ export class AppClient {
     return new AppClient({ url: env.AOC_APP_URL, apiKey: env.AOC_HARNESS_API_KEY });
   }
 
-  async call(name, version, input, { idempotencyKey } = {}) {
+  /** Mutations: CONFLICT (a concurrent FeltDB commit; nothing written) is retried with backoff, bounded. */
+  async call(name, version, input, opts = {}) {
+    for (let i = 0; ; i++) {
+      try { return await this.#call(name, version, input, opts); }
+      catch (e) {
+        if (!opts.idempotencyKey || e.code !== 'CONFLICT' || i >= 5) throw e;
+        await new Promise((r) => setTimeout(r, 200 * 2 ** i));
+      }
+    }
+  }
+
+  async #call(name, version, input, { idempotencyKey } = {}) {
     const envelope = { protocol: 'appport/1', type: 'request', requestId: `req_${randomUUID()}`, capability: { name, version }, input, ...(idempotencyKey ? { idempotencyKey } : {}) };
     let res;
     try {
@@ -44,7 +55,7 @@ export class AppClient {
     try { body = JSON.parse(text); } catch { throw new AppPortError('INTERNAL_ERROR', `non-JSON response (HTTP ${res.status})`, { capability: `${name}@${version}`, httpStatus: res.status, retryable: res.status >= 500 }); }
     if (body?.type === 'response') {
       if (body.ok) return body.output;
-      throw new AppPortError(body.error?.code ?? 'ERROR', body.error?.message ?? 'refused', { capability: `${name}@${version}`, httpStatus: res.status, retryable: !!body.error?.retryable });
+      throw new AppPortError(body.error?.code ?? 'ERROR', `${body.error?.message ?? 'refused'}${body.error?.details?.reason ? ` [${body.error.details.reason}${body.error.details.problems ? `: ${JSON.stringify(body.error.details.problems).slice(0, 600)}` : ''}]` : ''}`, { capability: `${name}@${version}`, httpStatus: res.status, retryable: body.error?.code === 'CONFLICT', details: body.error?.details });
     }
     // FeltKit's own error shape outside AppPort (e.g. 401 before the binding): { ok:false, error:{code,message} }
     if (body?.error) throw new AppPortError(body.error.code ?? `HTTP_${res.status}`, body.error.message ?? '', { capability: `${name}@${version}`, httpStatus: res.status });

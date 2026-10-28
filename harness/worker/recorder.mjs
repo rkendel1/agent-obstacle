@@ -22,8 +22,8 @@ export class EventLog {
     if (!SOURCES.has(source)) source = 'harness';
     const e = { seq: ++this.seq, at: nowIso(), source, kind, summary: bounded(String(summary ?? '').split('\n')[0], 500) };
     if (data !== undefined) {
-      const d = JSON.stringify(data);
-      e.data = d.length > 16 * 1024 ? { truncated: true, bytes: d.length } : data;
+      const d = Buffer.byteLength(JSON.stringify(data));
+      e.data = d > 15 * 1024 ? { truncated: true, bytes: d } : data;   // app bound: 16 KiB
     }
     appendJSONL(this.path, e);
     this.events.push(e);
@@ -51,17 +51,27 @@ export class Recorder {
       let pending = this.events.pending();
       while (pending.length) {
         const batch = pending.slice(0, 200);
-        await this.sink.appendEvents(this.runId, batch);
+        try { await this.sink.appendEvents(this.runId, batch); }
+        catch (e) { if (e.code !== 'INVALID_INPUT') throw e; this.log(`[${this.runId}] events ${batch[0].seq}-${batch.at(-1).seq} refused by the app: ${e.message}`); }
         this.events.acknowledge(batch.at(-1).seq);
         pending = pending.slice(200);
       }
       const items = this.evidence.pending();
       // one call per ~512 KiB of inline content
       let batch = [], size = 0;
-      const send = async () => { if (!batch.length) return; await this.sink.addEvidence(this.runId, batch); this.evidence.acknowledge(batch.map((i) => i.evidenceId)); batch = []; size = 0; };
+      const send = async () => {
+        if (!batch.length) return;
+        try { await this.sink.addEvidence(this.runId, batch); }
+        catch (e) {
+          if (e.code !== 'INVALID_INPUT') throw e;
+          // A refused item (e.g. evidence_conflict after a re-executed stage) must not block the rest: one by one, drop refusals.
+          for (const it of batch) { try { await this.sink.addEvidence(this.runId, [it]); } catch (e2) { if (e2.code !== 'INVALID_INPUT') throw e2; this.log(`[${this.runId}] evidence ${it.evidenceId} refused by the app: ${e2.message}`); } }
+        }
+        this.evidence.acknowledge(batch.map((i) => i.evidenceId)); batch = []; size = 0;
+      };
       for (const it of items) {
         const s = Buffer.byteLength(it.content ?? '');
-        if (size + s > 512 * 1024) await send();
+        if (size + s > 512 * 1024 || batch.length >= 50) await send();   // app bound: 50 items per call
         batch.push(it); size += s;
       }
       await send();
