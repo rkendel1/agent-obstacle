@@ -38,6 +38,16 @@ does this).
 
 Full guide: [docs/harness/README.md](docs/harness/README.md) (what is enforced vs not, known gaps, recorded runs).
 
+Tools are found through the environment variable, then `PATH`, then the usual install locations
+(`~/.cargo/bin`, `~/.local/bin`):
+
+| Tool | Needed for | Install | Override |
+| --- | --- | --- | --- |
+| `feltdb-server` 0.3.0 | the work authority (every run) | `cargo install feltdb-server --version 0.3.0 --locked` | `FELTDB_SERVER_BIN` |
+| `pax` 0.5.0 | evidence (every run) | build PAX and put it on `PATH` | `AOC_PAX_BIN` |
+| `stack-agent` | Stack-Agent runs | `cargo build --locked --release --bin stack-agent`, put it on `PATH` | `AOC_STACK_AGENT_BIN` |
+| llama-cpp-python + GGUF | local-model runs | `pip install 'llama-cpp-python[server]'` | `AOC_LLM_PYTHON`, `AOC_MODELS_DIR` |
+
 ```bash
 npm run harness:authority:setup                          # local feltdb-server 0.3.0 work authority (once)
 npm run harness:model:start -- --model 3b                # llama-cpp-python + model proxy (only for model-driven agents)

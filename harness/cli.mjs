@@ -13,7 +13,7 @@
 //   --durable   --evidence docs/harness/runs/<name>.json (small JSON summary)   --keep-eval
 import { rmSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { runsDir, fixturesDir } from './lib/paths.mjs';
+import { runsDir, fixturesDir, requireTool } from './lib/paths.mjs';
 import { canonicalDigest, writeJSON, readJSON, readJSONL, nowIso } from './lib/util.mjs';
 import { AppClient } from './app-client/index.mjs';
 import { loadState, refreshGrants, startAuthority, authorityStatus } from './work-authority/authority.mjs';
@@ -111,6 +111,7 @@ async function main() {
   switch (cmd) {
     case 'start':
     case 'once': {
+      requireTool('pax'); // every run observes with PAX; Stack-Agent is checked when a run uses it
       const state = await authority();
       const app = AppClient.fromEnv();
       const d = new Dispatcher({ app, state, sink: new AppSink(app), log });

@@ -11,7 +11,7 @@
 import { spawn, execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, closeSync, readFileSync, rmSync, unlinkSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { stateDir, TOOLS } from '../lib/paths.mjs';
+import { stateDir, TOOLS, requireTool } from '../lib/paths.mjs';
 import { readJSON, writeJSON, randomSecret, sleep } from '../lib/util.mjs';
 import { clientsFor, issueGrant, meshHeartbeat, grantExpiresAt, nowSeconds, errInfo } from './client.mjs';
 
@@ -49,7 +49,7 @@ function serverEnv() {
   return { PATH: process.env.PATH, HOME: process.env.HOME, FELTDB_MASTER_KEY: s.feltdbMasterKey, FELTDB_SESSION_SECRET: s.feltdbSessionSecret, FELTDB_GRANT_SIGNING_KEY: s.feltdbGrantSigningKey };
 }
 
-const cli = (...args) => execFileSync(TOOLS.feltdbServer, args, { encoding: 'utf8', env: serverEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
+const cli = (...args) => execFileSync(requireTool('feltdbServer'), args, { encoding: 'utf8', env: serverEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
 
 function readPid() { const p = authorityPaths(); try { return Number(readFileSync(p.pid, 'utf8').trim()) || null; } catch { return null; } }
 const alive = (pid) => { if (!pid) return false; try { process.kill(pid, 0); return true; } catch { return false; } };
@@ -69,7 +69,7 @@ export async function startAuthority({ timeoutMs = 30_000 } = {}) {
   if (alive(pid) && (await health()).ok) return { url: authorityUrl(), pid, already: true };
   const args = ['--host', '127.0.0.1', '--port', String(authorityPort()), '--namespace', NAMESPACE, '--data', p.data, '--keys', p.keys, '--auth'];
   const out = openSync(p.log, 'a');
-  const child = spawn(TOOLS.feltdbServer, args, { env: serverEnv(), detached: true, stdio: ['ignore', out, out] });
+  const child = spawn(requireTool('feltdbServer'), args, { env: serverEnv(), detached: true, stdio: ['ignore', out, out] });
   closeSync(out);
   child.unref();
   writeFileSync(p.pid, String(child.pid));
