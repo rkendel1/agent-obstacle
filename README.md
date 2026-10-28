@@ -34,8 +34,18 @@ does this).
 
 <!-- HARNESS: the harness agent adds its commands here (work authority, model proxy, dispatcher/worker). -->
 
-> _Section reserved for the harness (`harness/`)._ It needs the app running, a harness API key
-> (`npm run harness:key`), and the contract in [docs/contracts/harness-app.md](docs/contracts/harness-app.md).
+### Harness
+
+Full guide: [docs/harness/README.md](docs/harness/README.md) (what is enforced vs not, known gaps, recorded runs).
+
+```bash
+npm run harness:authority:setup                          # local feltdb-server 0.3.0 work authority (once)
+npm run harness:model:start -- --model 3b                # llama-cpp-python + model proxy (only for model-driven agents)
+npm run harness:key -- --out .harness/harness-api-key    # with the app running
+AOC_APP_URL=http://127.0.0.1:3000 AOC_HARNESS_API_KEY=$(cat .harness/harness-api-key) npm run harness:start
+npm run harness:test                                     # harness unit + Durable Work tests
+npm run harness:run -- --course course-000-calibration/v1 --adapter reference-control   # one run without the app
+```
 
 <!-- /HARNESS -->
 
