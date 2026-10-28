@@ -10,7 +10,10 @@
     "test": "feltkit test",
     "inspect": "feltkit inspect",
     "deploy": "feltkit deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "seed:courses": "node scripts/seed-courses.mjs",
+    "model:sync": "node scripts/model-sync.mjs",
+    "harness:key": "node scripts/harness-key.mjs"
   },
   "dependencies": {
     "@feltdb/feltkit": "^0.2.0",
@@ -24,5 +27,6 @@
     "@vitejs/plugin-react": "5.1.0",
     "typescript": "5.9.3",
     "vite": "7.3.7"
-  }
+  },
+  "description": "Agent Obstacle Course: evaluate whole agent systems on real tasks under controlled conditions."
 }

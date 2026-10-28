@@ -2,8 +2,11 @@
 /* eslint-disable */
 import { createApi } from "@feltdb/feltkit/client";
 import type * as app_module from "../app.js";
-import type * as projects_module from "../projects.js";
-import type * as tasks_module from "../tasks.js";
+import type * as courses_module from "../courses.js";
+import type * as experiments_module from "../experiments.js";
+import type * as harness_module from "../harness.js";
+import type * as models_module from "../models.js";
+import type * as runs_module from "../runs.js";
 
 /** Typed references to every query and mutation. Type-only imports: no backend code reaches the browser. */
-export const api = createApi<{ "app": typeof app_module; "projects": typeof projects_module; "tasks": typeof tasks_module }>();
+export const api = createApi<{ "app": typeof app_module; "courses": typeof courses_module; "experiments": typeof experiments_module; "harness": typeof harness_module; "models": typeof models_module; "runs": typeof runs_module }>();
