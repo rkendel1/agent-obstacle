@@ -4,7 +4,7 @@
 // first one that has none.
 import { existsSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { TOOLS, HARNESS_DIR } from '../lib/paths.mjs';
+import { TOOLS, HARNESS_DIR, toolchainPath } from '../lib/paths.mjs';
 import { canonicalDigest, treeDigest, readJSON, writeJSON, nowIso, bounded } from '../lib/util.mjs';
 import { run, groupAlive, terminateGroup } from '../lib/proc.mjs';
 import { findCourseByDigest, listCourses, validateCourse, loadCourseDir, bareDigest } from '../courses/index.mjs';
@@ -77,6 +77,14 @@ export async function runStages(ctx, { checkpoint, stageReport, afterStage = asy
   return { result: readJSON(join(ctx.runDir, 'result.json'), null), outcome: state.report?.outcome, state };
 }
 
+const ECOSYSTEM_TOOLS = { 'rust-cargo': ['cargo'], 'node-pnpm-vitest': ['node', 'pnpm'] };
+/** Tools a course needs (its ecosystem and its acceptance toolchain) that are not on the agent/evaluator PATH. */
+export function missingToolchain(doc, path = toolchainPath()) {
+  const need = new Set([...(ECOSYSTEM_TOOLS[doc.environment?.ecosystem] ?? []), ...(Array.isArray(doc.acceptance?.toolchain) ? doc.acceptance.toolchain : [])]);
+  const dirs = path.split(':');
+  return [...need].filter((t) => !dirs.some((d) => existsSync(join(d, t))));
+}
+
 export async function resolveCourse(ctx) {
   const c = findCourseByDigest(ctx.input.courseDigest, ctx.coursesRoot);
   if (c) return c;
@@ -101,6 +109,10 @@ const STAGE_IMPL = {
       const v = await ctx.sink.courseVersion(input.courseVersionId).then((r) => r.version, (e) => { throw new StageError(`courses.version: ${e.message}`, 'harness'); });
       if (v?.digest && v.digest !== input.courseDigest) throw new StageError(`course version ${input.courseVersionId} digest ${v.digest} differs from the run's ${input.courseDigest}`, 'harness');
     }
+    // The course's toolchain must be on this machine before anything runs: missing -> BLOCKED (environment), not an
+    // agent that cannot run its tests and an evaluator that cannot run its checks.
+    const missing = missingToolchain(course.doc);
+    if (missing.length) throw new StageError(`this machine cannot run ${course.doc.identity.id}@${course.doc.identity.version}: ${missing.join(', ')} not found (looked in ${toolchainPath()}). Install ${missing.join(' and ')} and restart npm run dev.`, 'environment');
     const expd = experimentDigest(input.experiment);
     if (input.experiment.digest && bareDigest(input.experiment.digest) !== bareDigest(expd)) throw new StageError(`experiment digest ${input.experiment.digest} does not reproduce (computed ${expd} over { agent, model, budgets, obstacles, environment })`, 'harness');
     // Explicit evaluator resolution before anything runs: none / missing / invalid / tampered -> ERROR.

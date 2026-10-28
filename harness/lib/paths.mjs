@@ -40,6 +40,21 @@ export const TOOLS = {
   modelsDir: process.env.AOC_MODELS_DIR || '/opt/llm/models',
 };
 
+/**
+ * PATH for agents and evaluators: not the host PATH, only the directories that hold the course toolchains
+ * (wherever this machine has them: rustup's ~/.cargo/bin, Homebrew, nvm, …) plus the system directories.
+ */
+export function toolchainPath() {
+  const dirs = [dirname(process.execPath)];
+  for (const name of ['cargo', 'rustc', 'rustup', 'pnpm', 'npm', 'node', 'git', 'python3']) {
+    for (const dir of (process.env.PATH || '').split(delimiter).filter(Boolean)) {
+      if (existsSync(join(dir, name))) { dirs.push(dir); break; }
+    }
+  }
+  dirs.push(join(home, '.cargo', 'bin'), '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin');
+  return [...new Set(dirs)].filter((d) => existsSync(d)).join(delimiter);
+}
+
 const INSTALL = {
   feltdbServer: 'cargo install feltdb-server --version 0.3.0 --locked   (or set FELTDB_SERVER_BIN)',
   pax: 'install PAX 0.5.0 and put `pax` on PATH   (or set AOC_PAX_BIN)',

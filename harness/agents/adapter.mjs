@@ -34,7 +34,7 @@
 import { dirname, join } from 'node:path';
 import { existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { REPO_ROOT } from '../lib/paths.mjs';
+import { REPO_ROOT, toolchainPath } from '../lib/paths.mjs';
 
 /** The FeltKit app's name (feltkit/app.ts): its development vault is scoped to it. */
 const APP_NAME = 'agent-obstacle-course';
@@ -47,7 +47,7 @@ export const DENY = /(^|_)(API_KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)S?($|_)|^(OP
  * credentials. PATH puts the PAX shim first.
  */
 export function agentEnv({ runDir, paxBin, home, extraPath = [] }) {
-  const PATH = [dirname(paxBin), ...extraPath, dirname(process.execPath), '/root/.cargo/bin', '/usr/local/bin', '/usr/bin', '/bin'].join(':');
+  const PATH = [dirname(paxBin), ...extraPath, toolchainPath()].join(':');
   const env = {
     PATH, HOME: home ?? process.env.HOME, LANG: 'C.UTF-8', TERM: 'dumb', CI: '1', NO_COLOR: '1',
     RUSTUP_TOOLCHAIN: 'stable', CARGO_TARGET_DIR: `${runDir}/target`, CARGO_INCREMENTAL: '0', CARGO_TERM_COLOR: 'never',

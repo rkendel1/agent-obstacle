@@ -28,6 +28,7 @@ import { gitHead, gitRefs } from '../courses/fixtures.mjs';
 import { courseDigest, bareDigest } from '../courses/index.mjs';
 import { validateEvaluatorDeclaration, validateCourseAcceptance, ACCEPTANCE_SCHEMA } from '../../feltkit/lib/acceptance-v1.js';
 import { runDeclarative } from './declarative.mjs';
+import { toolchainPath } from '../lib/paths.mjs';
 import { parseTestOutput } from './parse.mjs';
 
 export { parseTestOutput };
@@ -80,7 +81,7 @@ export function resolveEvaluator(course, { expectedCourseDigest } = {}) {
 
 export function evaluatorEnv(evalDir) {
   return {
-    PATH: [dirname(process.execPath), '/root/.cargo/bin', '/usr/local/bin', '/usr/bin', '/bin'].join(':'),
+    PATH: toolchainPath(),
     HOME: process.env.HOME, LANG: 'C.UTF-8', CI: '1', NO_COLOR: '1', FORCE_COLOR: '0',
     RUSTUP_TOOLCHAIN: 'stable', CARGO_TARGET_DIR: join(evalDir, 'target'), CARGO_INCREMENTAL: '0', CARGO_TERM_COLOR: 'never',
     ...(process.env.RUSTUP_HOME ? { RUSTUP_HOME: process.env.RUSTUP_HOME } : {}), ...(process.env.CARGO_HOME ? { CARGO_HOME: process.env.CARGO_HOME } : {}),

@@ -92,3 +92,21 @@ test('a run on a course version this checkout does not have names the version an
   await assert.rejects(resolveCourse({ input: { courseDigest: 'sha256:' + '0'.repeat(64), courseVersionId: 'cv1' }, sink }),
     /course course-000-calibration@v1 .*not in this checkout.*has course-000-calibration@v2.*seed:courses/);
 });
+
+test('agents and evaluators get the host\'s toolchain directories (not hard-coded ones); a missing toolchain is named before a run', async () => {
+  const { toolchainPath } = await import('../lib/paths.mjs');
+  const { missingToolchain } = await import('../worker/stages.mjs');
+  const { chmodSync } = await import('node:fs');
+  const bin = mkdtempSync(join(tmpdir(), 'aoc-cargo-home-'));
+  try {
+    writeFileSync(join(bin, 'cargo'), '#!/bin/sh\n'); chmodSync(join(bin, 'cargo'), 0o755);
+    const saved = process.env.PATH;
+    process.env.PATH = `${bin}:/usr/bin:/bin`;
+    try { assert.ok(toolchainPath().split(':').includes(bin), 'a cargo found on the host PATH (e.g. ~/.cargo/bin on macOS) is on the agent/evaluator PATH'); }
+    finally { process.env.PATH = saved; }
+    const rust = { environment: { ecosystem: 'rust-cargo' }, acceptance: { toolchain: ['cargo'] } };
+    assert.deepEqual(missingToolchain(rust, bin), []);
+    assert.deepEqual(missingToolchain(rust, '/nonexistent'), ['cargo']);
+    assert.deepEqual(missingToolchain({ environment: { ecosystem: 'node-pnpm-vitest' }, acceptance: { toolchain: ['pnpm', 'npx'] } }, '/nonexistent'), ['node', 'pnpm', 'npx']);
+  } finally { rmSync(bin, { recursive: true, force: true }); }
+});
