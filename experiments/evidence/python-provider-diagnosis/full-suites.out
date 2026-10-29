@@ -1,0 +1,16 @@
+base run 1: exit 0 | load 0.15 cargo 0 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 1: exit 0 | load 1.67 cargo 0 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+base run 2: exit 0 | load 2.11 cargo 0 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 2: exit 0 | load 2.77 cargo 0 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+base run 3: exit 0 | load 3.92 cargo 0 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 3: exit 0 | load 4.91 cargo 0 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+base run 4: exit 0 | load 5.07 cargo 1 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 4: exit 0 | load 6.32 cargo 1 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+base run 5: exit 0 | load 6.76 cargo 1 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 5: exit 0 | load 5.47 cargo 0 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+base run 6: exit 0 | load 4.91 cargo 0 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 6: exit 0 | load 5.83 cargo 1 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+base run 7: exit 0 | load 5.30 cargo 0 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 7: exit 0 | load 5.32 cargo 1 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+base run 8: exit 0 | load 5.57 cargo 0 |  Tests 1660 passed | 8 skipped (1668) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 
+d6 run 8: exit 0 | load 6.03 cargo 0 |  Tests 1674 passed | 8 skipped (1682) | pythonStarts 16 readyButChildDead 0 0 didNotStart 0 0 | 

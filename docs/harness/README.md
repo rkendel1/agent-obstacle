@@ -159,6 +159,35 @@ only (never from `scoring`).
 | Network | not enforced | proxy variables are not passed to the agent, nothing blocks a direct connection; not scored |
 | "No public API change / no unrelated refactor" | not enforced | recorded via the diff for human review |
 
+## Stack-Agent builds and A/B experiments
+
+An experiment's `agent.options` (part of its digest) can select what Stack-Agent runs with:
+
+| Option | Values | Effect |
+| --- | --- | --- |
+| `build` | a name in `harness/agents/stack-agent-builds.json` | run the binary built from that exact commit, installed at `${AOC_STACK_AGENT_BUILDS_DIR:-~/.aoc-bins}/stack-agent-<commit>`; absent: the harness's default binary |
+| `contextProfile` | `replay`, `auto`, `light`, `standard`, `deep`, `recovery` | `--context-profile`; absent: the build's default |
+| `promptCache` | `on`, `off` | `--prompt-cache`; absent: the build's default |
+| `runLabel` | 1–64 of `A-Z a-z 0-9 . _ : -` | the arm label, passed with run/course/obstacle as `CHIP_RUN_LABELS` |
+
+Rules: an unknown build, a missing binary, an invalid value, or an option the selected binary does not support
+ends the run before the agent starts (environment) — nothing is silently dropped. Nothing is added to the command
+line for an unset option, so existing experiments run exactly as before. The harness never builds or replaces a
+binary. Every run records, in `reproducibility.agentBinary` and `reproducibility.agentConfig` and the
+`config:agent` evidence item: the build, commit, path, sha256 and `--version`; the requested settings; the
+**effective** settings from the agent's own report (`tuning.context_profile`, `generation.prompt_cache` and its
+source, the run labels in its token ledger); its per-profile call counts and completion section. Metrics gain
+`cacheReadTokens`, `cacheWriteTokens`, `uncachedInputTokens`, `totalInputTokens` from the agent's ledger — `null`
+whenever any call did not report the field.
+
+`npm run experiment:ab` reads a pre-registered plan (`experiments/ab-adaptive-context-v1.json`): with no flags it
+checks the build and prints the exact experiment definitions, the ABBA run order, projected model calls and a cost
+range; `--launch --stage <id> --confirm-paid` saves the experiments and launches the runs through the app.
+`harness/test/stack-agent-config.test.mjs` validates the arms with local fake model servers (no paid calls).
+Plans and results are in [`experiments/`](../../experiments/README.md); course and harness lessons in
+[`experiments/LESSONS.md`](../../experiments/LESSONS.md); Stack-Agent's own findings in rkendel1/stack-agent
+`docs/product/efficiency-experiments.md`.
+
 ## Known gaps
 
 - **PAX now reads the T4 (pnpm → vitest) suite.** The pinned build (rkendel1/pax c70680c, still `pax 0.5.0`) reports
