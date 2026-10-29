@@ -54,6 +54,10 @@ implemented).
     one start hung (in `integration-e2e.test.ts`, already `knownFlaky`): a third symptom, not either observed one.
   - **Interpretation:** the `freePort()` → `startPython()` race is real but needs artificial pressure, and it is not
     tree-specific. It does not explain the T4 failure. The cause stays unknown, and the FAIL stands.
+  - **Observed later:** the same test failed in the evaluator's regression suite of a run whose agent never started
+    (`mvsl12st8320a0ae9981`, empty diff, base commit unchanged; `AppPortError: The AppPort discovery endpoint is
+    unreachable`). So the failure is not specific to seq 6's change; it is a fixture reliability problem of unknown
+    cause.
   - **Next discriminating test:** capture the child's exit code and stderr and the per-scenario observations at the
     moment of failure, under the harness's real conditions, ≥ 30 runs per tree.
 - **Lesson:** a course whose regression suite contains timing-sensitive end-to-end tests can fail correct work. Each

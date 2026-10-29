@@ -60,6 +60,19 @@ diff ("d6"):
   full suites; 0 of 8 instrumented; 0 of 10 under churn; 0 of 5 single-file). Base 0 in 26. Seq 5's diff 0 of 4.
   The 2-vs-0 difference is not statistically meaningful at these counts (Fisher exact, two-sided p ≈ 0.50).
 
+## Later finding: the same test fails on the unmodified fixture
+
+Found while assessing Stack-Agent (rkendel1/stack-agent `docs/product/production-readiness-assessment.md` §2.2).
+- **Observed:** in run `mvsl12st8320a0ae9981` (2026-10-28, Sonnet, T4 v2), the agent never started (exit 3,
+  `FeltDB refused create_task: CONTRACT_INPUT_INVALID`). `artifacts/diff_agent.txt` is empty and the base commit
+  check passed (`268c9b46a71a`). The evaluator's regression suite still failed the same test,
+  `behavioral-replacement-e2e.test.ts` > "independent Python provider … an honest second instance is equivalent …",
+  with `AppPortError: The AppPort discovery endpoint is unreachable` (`artifacts/acceptance_regression.txt`).
+- **Interpretation:** the test can fail with no change at all under the harness's real conditions. That is a fourth
+  symptom, and direct evidence that the seq 6 failure is not specific to its change. Like the others, it fits a
+  readiness or port problem in the fixture's `startPython`/discovery path. The cause is still unknown.
+- The run directory is under `~/.aoc/runs` on the machine that ran it and is not in this repository.
+
 ## Conclusion
 
 - **No defect established in seq 6's change.** The resolver logic matches seq 5's, which passed. Nothing in the 36
@@ -67,7 +80,9 @@ diff ("d6"):
 - **The port-race hypothesis is weakened, not confirmed:** without injected churn every child bound its port. Under
   churn the race produced a third symptom (a hang), not either observed one. The original failures had a cause these
   runs did not reproduce.
-- **Classification stays inconclusive.** The evaluator's FAIL for seq 6 stands; nothing here justifies rescoring it.
+- **Classification:** a fixture reliability problem of unknown cause, not attributable to seq 6's change (the same
+  test failed on the unmodified fixture, above). It is neither a confirmed defect nor a characterized flake. The
+  evaluator's FAIL for seq 6 stands; scoring rules are not changed after results.
 - **Fixture weaknesses that are real regardless** (for a future course version, decided before any results): the
   readiness `fetch` has no timeout, so a wrong listener hangs the test instead of failing fast; `freePort()` →
   spawn leaves a window; the readiness check does not confirm that the answering process is the child (e.g. by
