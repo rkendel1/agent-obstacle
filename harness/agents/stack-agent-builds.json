@@ -1,0 +1,13 @@
+{
+  "schema": "aoc.stack-agent-builds.v1",
+  "note": "Named Stack-Agent builds an experiment can select with agent.options.build. A build is a binary built from an exact rkendel1/stack-agent commit and installed at <AOC_STACK_AGENT_BUILDS_DIR or ~/.aoc-bins>/stack-agent-<commit>. The harness never builds or replaces one; it records the path, sha256, --version and commit of whatever it runs. Without agent.options.build the harness runs its default binary (AOC_STACK_AGENT_BIN, PATH, ...) and records that.",
+  "builds": {
+    "adaptive-4a9b05b": {
+      "commit": "4a9b05b",
+      "repository": "rkendel1/stack-agent",
+      "branch": "claude/adaptive-context",
+      "build": "cargo build --locked --release --bin stack-agent (RUSTUP_TOOLCHAIN=stable)",
+      "supports": ["context-profile", "prompt-cache", "run-labels"]
+    }
+  }
+}

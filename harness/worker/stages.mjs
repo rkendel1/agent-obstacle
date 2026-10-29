@@ -193,6 +193,7 @@ const STAGE_IMPL = {
         runId: ctx.runId, attempt: ctx.attemptNumber, objective: { goal: course.doc.objective.goal, kind: course.doc.objective.kind },
         workspace, runDir, capabilities: course.doc.capabilities.allowed, budgets: exp.budgets, model, env, paxBin: shim.bin,
         interruption: adapter.id === 'stack-agent' ? interruption : null, hooks, course, signal: ctx.signal, options: exp.agent.options ?? {},
+        obstacleLabel: exp.obstacles?.enabled ? (exp.obstacles.overrides?.variant ?? 'default') : 'none',
         emit: (e) => recorder.emit(e),
         observe: () => ({ modelCalls: proxy?.stats.calls ?? 0, paxTests: paxShimSummary(shim.log).entries.filter((x) => x.op === 'test' && x.phase === 'end').length }),
       });
@@ -220,12 +221,13 @@ const STAGE_IMPL = {
 
     writeJSON(join(runDir, 'agent-result.json'), result);
     for (const a of result.artifacts ?? []) if (existsSync(a.path)) recorder.addEvidence({ evidenceId: `agent:${a.label}`, kind: a.kind, label: a.label, source: 'agent', content: readFileSync(a.path, 'utf8') });
+    if (result.config) recorder.addEvidence({ evidenceId: 'config:agent', kind: 'process', label: 'agent build and configuration (requested and effective), run labels, context profiles, completion', source: 'harness', content: result.config });
     recorder.addEvidence({ evidenceId: 'process:agent', kind: 'process', label: 'agent process exit, signal, timing and launches', source: 'runtime', content: { adapter: result.adapter, control: !!result.control, observed: result.observed, launches: result.launches, notRun: result.notRun ?? null } });
     if (existsSync(shim.log)) recorder.addEvidence({ evidenceId: 'pax.test:agent', kind: 'pax.test', label: "the agent's PAX invocations (shim log)", source: 'harness', content: readFileSync(shim.log, 'utf8') });
     if (proxy && existsSync(join(runDir, 'artifacts', 'model-calls.jsonl'))) recorder.addEvidence({ evidenceId: 'log:model-calls', kind: 'log', label: 'model call metadata (per-run proxy; no prompt bodies)', source: 'harness', content: readFileSync(join(runDir, 'artifacts', 'model-calls.jsonl'), 'utf8') });
     recorder.emit({ source: 'agent', kind: 'claim', summary: `${result.control ? 'control' : 'agent'} claims: ${result.claims.agentTerminalState ?? 'n/a'}; verified=${result.claims.agentSaysVerified ?? 'n/a'}`, data: result.claims });
     return {
-      agent: { adapter: result.adapter, version: result.version, control: !!result.control, claims: result.claims, observed: result.observed, metrics: result.metrics, launches: result.launches, notRun: result.notRun ?? null },
+      agent: { adapter: result.adapter, version: result.version, control: !!result.control, claims: result.claims, observed: result.observed, metrics: result.metrics, launches: result.launches, notRun: result.notRun ?? null, config: result.config ?? null },
       proxy: proxy ? { ...proxy.stats } : null, shim: { tests: shimSummary.tests.length, injected: shimSummary.injections.length, lastReal: shimSummary.lastReal },
       recovery, watched: { before: watchedBefore, after: watchedAfter },
     };
@@ -317,12 +319,15 @@ export function buildResult(ctx, state, failure, { cancelled = false } = {}) {
       paxTestsObserved: state.agent?.shim ? state.agent.shim.tests : null, paxTestsInjected: state.agent?.shim ? state.agent.shim.injected : null,
       filesChanged: state['observe-after'] ? state['observe-after'].changedFiles.length : null, modelFailures: num(m.modelFailures), malformedReplies: num(m.malformedReplies),
       interruptions: num(m.interruptions), evaluationMs: num(state.evaluate?.ms), attempts: ctx.attemptNumber ?? 1,
+      // Provider-reported via the agent's ledger; null when any call did not report the field (unknown, not zero).
+      cacheReadTokens: num(m.cacheReadTokens), cacheWriteTokens: num(m.cacheWriteTokens), uncachedInputTokens: num(m.uncachedInputTokens), totalInputTokens: num(m.totalInputTokens),
     },
     recovery: state.agent?.recovery ?? [],
     reproducibility: {
       courseDigest: ctx.input.courseDigest, ...(state.prepare ? { fixtureDigest: `sha256:${state.prepare.fixture.fixtureDigest}` } : {}),
       ...(state['observe-after'] ? { finalTreeDigest: `sha256:${state['observe-after'].finalTreeDigest}` } : {}),
       experimentDigest: exp.digest ?? experimentDigest(exp), ...(agent?.version ? { agentVersion: `${agent.adapter} ${agent.version}` } : {}),
+      ...(agent?.config ? { agentBinary: agent.config.binary, agentConfig: { requested: agent.config.requested, effective: agent.config.effective, runLabels: agent.config.runLabels } } : {}),
       paxVersion: paxVersion() ?? undefined, evaluatorVersion: evaluation.evaluatorVersion, ...(ctx.workAuthority ? { workAuthorityRelease: ctx.workAuthority.release } : {}),
       ...provenance(state),
       deterministic: !!(agent?.control && deterministicCourse),

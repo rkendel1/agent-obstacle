@@ -14,6 +14,7 @@ import { TOOLS } from '../lib/paths.mjs';
 import { spawnGroup, killGroup, terminateGroup, groupAlive, run } from '../lib/proc.mjs';
 import { sleep, sha256File, bounded, tail } from '../lib/util.mjs';
 import { emptyMetrics } from './adapter.mjs';
+import { resolveStackAgentConfig, configArgs, runLabels, effectiveFromReport, tokenTotals } from './stack-agent-config.mjs';
 
 let versionCache = null;
 export function stackAgentVersion() {
@@ -34,8 +35,8 @@ function parseReport(path) {
  * Settle intents whose outcome the killed attempt left unknown. Only pax.test intents are settled
  * (from the PAX shim log: did a test run start?); anything else is left for a human (it stays blocked).
  */
-export function settleUnknown(req, { stateDb, env }) {
-  const show = run(TOOLS.stackAgent, ['agent-state', 'show', '--state-db', stateDb, '--task-id', req.runId, '--json'], { cwd: req.workspace, env, timeoutMs: 60_000 });
+export function settleUnknown(req, { stateDb, env, bin = TOOLS.stackAgent }) {
+  const show = run(bin, ['agent-state', 'show', '--state-db', stateDb, '--task-id', req.runId, '--json'], { cwd: req.workspace, env, timeoutMs: 60_000 });
   let st; try { st = JSON.parse(show.stdout); } catch { return []; }
   const shimLog = join(req.runDir, 'artifacts', 'pax-calls.jsonl');
   const ran = existsSync(shimLog) && readFileSync(shimLog, 'utf8').includes('"op":"test","phase":"start"');
@@ -44,7 +45,7 @@ export function settleUnknown(req, { stateDb, env }) {
     if (i.state === 'resolved' || !i.key) continue;
     const action = (i.action ?? '').split(' ')[0];
     if (action !== 'pax.test') { out.push({ intent: i.key, action, exit: null, note: 'not settled: only pax.test intents are settled from harness evidence' }); continue; }
-    const r = run(TOOLS.stackAgent, ['agent-state', 'settle', '--state-db', stateDb, '--task-id', req.runId, '--intent', i.key, '--executed', ran ? 'true' : 'false',
+    const r = run(bin, ['agent-state', 'settle', '--state-db', stateDb, '--task-id', req.runId, '--intent', i.key, '--executed', ran ? 'true' : 'false',
       '--decided-by', 'aoc-harness-operator', '--evidence', "the harness's PAX shim log", '--json'], { cwd: req.workspace, env, timeoutMs: 60_000 });
     out.push({ intent: i.key, action, executed: ran, exit: r.code });
   }
@@ -58,7 +59,7 @@ export function settleUnknown(req, { stateDb, env }) {
  */
 export const durable = (req) => req.options?.durableState !== false;
 
-export function workArgs(req, { stateDb, leaseSecs, deadlineSecs }) {
+export function workArgs(req, { stateDb, leaseSecs, deadlineSecs, config = null }) {
   const b = req.budgets; const m = req.model;
   return ['work', req.objective.goal, '--kind', req.objective.kind ?? 'change',
     '--provider', m.provider === 'anthropic' ? 'anthropic' : 'openai-compatible', '--model', m.model, '--endpoint', m.endpoint,
@@ -71,7 +72,8 @@ export function workArgs(req, { stateDb, leaseSecs, deadlineSecs }) {
     '--call-timeout-secs', String(b.callTimeoutSecs), '--max-turns', String(b.maxTurns), '--max-executions', String(b.maxExecutions),
     '--deadline-secs', String(Math.max(1, Math.ceil(deadlineSecs))),
     ...(req.options?.temperature !== undefined ? ['--temperature', String(req.options.temperature)] : []),
-    ...(durable(req) ? ['--state-db', stateDb, '--task-id', req.runId, '--lease-secs', String(leaseSecs)] : ['--no-state']), '--json'];
+    ...(durable(req) ? ['--state-db', stateDb, '--task-id', req.runId, '--lease-secs', String(leaseSecs)] : ['--no-state']),
+    ...(config ? configArgs(config) : []), '--json'];
 }
 
 export const stackAgentAdapter = {
@@ -83,6 +85,11 @@ export const stackAgentAdapter = {
   async run(req) {
     if (!req.model) throw Object.assign(new Error('stack-agent needs a model selection'), { failureClass: 'harness' });
     if (Buffer.byteLength(req.objective.goal) > 2000) throw Object.assign(new Error('goal exceeds Stack-Agent\'s 2,000-byte limit'), { failureClass: 'harness' });
+    // Build, context profile, prompt cache and labels from the experiment; refused before anything runs if invalid.
+    const config = resolveStackAgentConfig(req.options ?? {});
+    const bin = config.binary.path;
+    const labels = runLabels(config, { runId: req.runId, courseRef: req.course?.doc?.identity ? `${req.course.doc.identity.id}@${req.course.doc.identity.version}` : null, obstacle: req.obstacleLabel ?? null });
+    req.emit({ source: 'harness', kind: 'agent.config', summary: `stack-agent ${config.binary.version ?? '?'}${config.binary.build ? ` (build ${config.binary.build} @ ${config.binary.commit})` : ' (default binary)'}; context profile ${config.contextProfile ?? 'build default'}; prompt cache ${config.promptCache ?? 'build default'}${config.runLabel ? `; arm ${config.runLabel}` : ''}`, data: { binary: config.binary, contextProfile: config.contextProfile, promptCache: config.promptCache, runLabel: config.runLabel, runLabels: labels } });
     const dataDir = join(req.runDir, 'agent-data');
     const outDir = join(req.runDir, 'agent');
     mkdirSync(dataDir, { recursive: true }); mkdirSync(outDir, { recursive: true });
@@ -90,7 +97,7 @@ export const stackAgentAdapter = {
     const b = req.budgets;
     const leaseSecs = req.options?.leaseSecs ?? Math.max(60, b.callTimeoutSecs + 60);
     const graceSecs = req.options?.deadlineGraceSecs ?? 60;
-    const env = { ...req.env, STACK_AGENT_DATA_DIR: dataDir, CHIP_API_KEY: 'local-placeholder' };
+    const env = { ...req.env, STACK_AGENT_DATA_DIR: dataDir, CHIP_API_KEY: 'local-placeholder', CHIP_RUN_LABELS: labels };
     const t0 = Date.now();
     const hardDeadline = t0 + (b.deadlineSecs + graceSecs) * 1000;
     const launches = [];
@@ -103,8 +110,8 @@ export const stackAgentAdapter = {
       const remaining = (t0 + b.deadlineSecs * 1000 - Date.now()) / 1000;
       if (remaining <= 1) { timedOut = timedOut || launches.length > 0; break; }
       const reportPath = join(outDir, `report.${n}.json`), stderrPath = join(outDir, `stderr.${n}.log`);
-      const args = workArgs(req, { stateDb, leaseSecs, deadlineSecs: remaining });
-      const p = spawnGroup(TOOLS.stackAgent, args, { cwd: req.workspace, env, stdoutPath: reportPath, stderrPath, pidFile: join(req.runDir, 'agent.pgid') });
+      const args = workArgs(req, { stateDb, leaseSecs, deadlineSecs: remaining, config });
+      const p = spawnGroup(bin, args, { cwd: req.workspace, env, stdoutPath: reportPath, stderrPath, pidFile: join(req.runDir, 'agent.pgid') });
       req.emit({ source: 'harness', kind: 'agent.launch', summary: `stack-agent launch ${n} (task ${req.runId})`, data: { launch: n, pgid: p.pgid, deadlineSecs: Math.ceil(remaining), leaseSecs } });
       let reason = null;
       let hookFired = false;
@@ -157,7 +164,7 @@ export const stackAgentAdapter = {
       // Resume refused because an action of the killed attempt has an unknown outcome: the harness
       // settles it as the operator, from its own evidence (the PAX shim log says whether a test ran).
       if (exit.code === 3 && /outcome is unknown/.test(stderr) && interruption?.fired && launches.length < 12 && !cancelled) {
-        const settled = settleUnknown(req, { stateDb, env });
+        const settled = settleUnknown(req, { stateDb, env, bin });
         req.emit({ source: 'harness', kind: 'recovery', summary: `operator settlement of ${settled.length} unresolved intent(s) from harness evidence; relaunching`, data: { settled } });
         if (settled.length && settled.every((x) => x.exit === 0)) continue;
       }
@@ -173,7 +180,7 @@ export const stackAgentAdapter = {
     // Durable record, read after exit (it is locked while the work runs).
     let agentState = null;
     const show = durable(req)
-      ? run(TOOLS.stackAgent, ['agent-state', 'show', '--state-db', stateDb, '--task-id', req.runId, '--json'], { cwd: req.workspace, env, timeoutMs: 60_000 })
+      ? run(bin, ['agent-state', 'show', '--state-db', stateDb, '--task-id', req.runId, '--json'], { cwd: req.workspace, env, timeoutMs: 60_000 })
       : { code: 0, stdout: JSON.stringify({ durableState: false, note: 'run with --no-state: no durable agent state' }) };
     if (show.code === 0) { try { agentState = JSON.parse(show.stdout); } catch {} }
     writeFileSync(join(outDir, 'agent-state-show.json'), show.code === 0 ? show.stdout : JSON.stringify({ exit: show.code, stderr: tail(show.stderr, 2000) }));
@@ -189,6 +196,10 @@ export const stackAgentAdapter = {
       });
     }
     metrics.interruptions = launches.filter((l) => l.interrupted).length;
+    // The ledger's provider-reported totals (null when any call did not report the field: unknown, not zero).
+    Object.assign(metrics, tokenTotals(rep));
+    const effective = effectiveFromReport(rep);
+    const profiles = rep?.token_usage?.context_profiles ?? null;
     const observed = { exitCode: last?.exit ?? null, signal: last?.signal ?? null, durationMs: Date.now() - t0, timedOut, ...(cancelled ? { cancelled: true } : {}) };
     const claims = rep ? {
       agentTerminalState: rep.terminal_state ?? (rep.ran === false ? `not-run:${rep.agent_state?.task?.status ?? 'terminal'}` : undefined),
@@ -201,7 +212,8 @@ export const stackAgentAdapter = {
       notRun = { reason: tail(last.stderrTail, 500), failureClass: /model|endpoint|connect|refused|unavailable|401|403|429/i.test(last.stderrTail) ? 'model' : 'environment' };
     }
     return {
-      adapter: 'stack-agent', version: stackAgentVersion().version, binarySha256: stackAgentVersion().sha256, control: false,
+      adapter: 'stack-agent', version: config.binary.version, binarySha256: config.binary.sha256, control: false,
+      config: { binary: config.binary, requested: { contextProfile: config.contextProfile, promptCache: config.promptCache, runLabel: config.runLabel }, effective, runLabels: labels, contextProfiles: profiles, completion: rep?.completion ?? null },
       claims, observed, metrics, launches,
       observations: [
         { kind: 'agent.report', summary: rep ? { terminal_state: rep.terminal_state, verified: rep.verified, exit_status: rep.exit_status, outcome_reason: rep.outcome_reason, pax: rep.pax, audit: rep.audit, executions_by_capability: rep.executions_by_capability, paths_written: rep.paths_written, agent_state: rep.agent_state } : null },

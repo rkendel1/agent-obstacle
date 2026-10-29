@@ -34,7 +34,8 @@
     "seed:courses": "node scripts/seed-courses.mjs",
     "model:sync": "node scripts/model-sync.mjs",
     "harness:key": "node scripts/harness-key.mjs",
-    "harness:e2e": "node scripts/harness-e2e.mjs"
+    "harness:e2e": "node scripts/harness-e2e.mjs",
+    "experiment:ab": "node scripts/experiment-ab.mjs"
   },
   "dependencies": {
     "@feltdb/core": "0.15.0",
