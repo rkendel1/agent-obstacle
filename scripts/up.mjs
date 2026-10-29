@@ -100,12 +100,16 @@ function cwdOf(pid) {
 /** App, harness and work-authority processes of THIS checkout left from an earlier start (another terminal, a crash). */
 function leftovers() {
   const ps = spawnSync("ps", ["-axo", "pid=,command="], { encoding: "utf8" }).stdout ?? "";
+  // Never this process or anything that started it (npm, a shell, a wrapper script).
+  const parents = new Map((spawnSync("ps", ["-axo", "pid=,ppid="], { encoding: "utf8" }).stdout ?? "").split("\n").map((l) => l.trim().split(/\s+/).map(Number)).filter((x) => x.length === 2));
+  const ancestors = new Set();
+  for (let p = process.pid; p && !ancestors.has(p); p = parents.get(p)) ancestors.add(p);
   const found = [];
   for (const line of ps.split("\n")) {
     const m = /^\s*(\d+)\s+(.*)$/.exec(line);
     if (!m) continue;
     const pid = Number(m[1]); const cmd = m[2];
-    if (pid === process.pid || pid === process.ppid) continue;
+    if (ancestors.has(pid)) continue;
     const what = /harness\/cli\.mjs (start|once)/.test(cmd) ? "harness"
       : /feltkit(\.js)? dev\b/.test(cmd) && !/scripts\/up\.mjs/.test(cmd) ? "app"
       : /scripts\/up\.mjs/.test(cmd) && !/^(sh|npm)/.test(cmd) ? "npm run dev"
