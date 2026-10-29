@@ -3,7 +3,9 @@
 Pre-registered experiment plans, their recorded results, and the evidence extracted from runs. Result files are
 records: they are never edited after the fact.
 
-**What we have learned so far: [LESSONS.md](LESSONS.md)** — the canonical summary; start there.
+**Lessons for the course, evaluator and harness: [LESSONS.md](LESSONS.md).** Findings about Stack-Agent itself (token
+economics, prompt caching, adaptive context, durable state, leases) are in rkendel1/stack-agent
+`docs/product/efficiency-experiments.md`.
 
 | File | What it is |
 | --- | --- |
