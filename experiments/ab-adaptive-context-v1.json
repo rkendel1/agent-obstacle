@@ -126,7 +126,7 @@
     {
       "at": "2026-10-29T01:42:41Z",
       "change": "added explicit primary/secondary metrics, hard constraints and the strict stop rule; primary objective unchanged; course-000 results unchanged",
-      "timing": "made after the T4 runs were launched (02:23Z) and before any T4 result was available; recorded data is unaffected"
+      "timing": "made about 25 s after the T4 runs were admitted (first admitted 01:42:17Z) and before any T4 result was available; recorded data is unaffected"
     }
   ]
 }
