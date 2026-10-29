@@ -47,11 +47,15 @@ implemented).
   - the full suite: 3/3 pass on base and 4/4 with seq 5's diff, but 6/7 with seq 6's diff;
   - the local failure had a different symptom: ``expected 'inconclusive' to be 'equivalent-for-tested-scenarios'``.
 - **Classification: inconclusive.** Not labelled harmless flakiness, not a confirmed regression.
-- **Investigation in progress:** [`evidence/python-provider-diagnosis/`](evidence/python-provider-diagnosis/README.md).
-  - The two diffs carry the same resolver logic.
-  - **Hypothesis:** the course fixture's `freePort()` → `startPython()` port race explains both symptoms. It is the
-    mechanism already documented for `integration-e2e.test.ts` in the course's `knownFlaky` note.
-  - Instrumented runs are under way.
+- **Diagnosis:** [`evidence/python-provider-diagnosis/`](evidence/python-provider-diagnosis/README.md).
+  - The two diffs carry the same resolver logic. No defect in seq 6's change was established.
+  - **Observed:** 36 instrumented runs (16 full suites, 20 targeted runs under injected port churn), 894 Python
+    starts. The T4 symptom never recurred on either tree. Without churn every child bound its port. Under churn,
+    one start hung (in `integration-e2e.test.ts`, already `knownFlaky`): a third symptom, not either observed one.
+  - **Interpretation:** the `freePort()` → `startPython()` race is real but needs artificial pressure, and it is not
+    tree-specific. It does not explain the T4 failure. The cause stays unknown, and the FAIL stands.
+  - **Next discriminating test:** capture the child's exit code and stderr and the per-scenario observations at the
+    moment of failure, under the harness's real conditions, ≥ 30 runs per tree.
 - **Lesson:** a course whose regression suite contains timing-sensitive end-to-end tests can fail correct work. Each
   such test needs either a deterministic fixture or an explicit, evidenced `knownFlaky` treatment, decided in a new
   course version, never after seeing results.
@@ -96,7 +100,7 @@ implemented).
 
 | # | Step | Evidence | Paid calls |
 | --- | --- | --- | --- |
-| 1 | Finish the Python-provider diagnosis (instrumented runs; fix the fixture's port handling in a new course version if the race is confirmed) | §2 | No |
+| 1 | Python-provider failure: capture diagnostics at the moment of failure under real harness conditions; in the next course version, give the fixture's readiness check a timeout and confirm the answering process is the child | §2 | No |
 | 2 | Course-001 v3 with one acceptance contract for the audit snapshot, with fresh preflight | §1 | No |
 | 3 | Re-run `replay` vs `auto` once Stack-Agent's selector fix and course v3 exist (Stack-Agent page, next steps) | both pages | **Yes** (T4 ≈ $13 per 3+3 at observed costs) |
 

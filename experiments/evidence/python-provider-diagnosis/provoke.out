@@ -1,0 +1,20 @@
+base 1: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 1: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 2: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 2: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 3: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 3: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 4: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 4: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 5: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 5: exit 1 | Tests 1 failed | 103 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 |  FAIL  spec/test/integration-e2e.test.ts > two independently designed applications integrate through their published con;
+base 6: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 6: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 7: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 7: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 8: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 8: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 9: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 9: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+base 10: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
+d6 10: exit 0 | Tests 104 passed | 1 skipped (105) | readyButChildDead 0 didNotStart 0 addrInUse 0 | 
