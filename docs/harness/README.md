@@ -184,6 +184,8 @@ whenever any call did not report the field.
 checks the build and prints the exact experiment definitions, the ABBA run order, projected model calls and a cost
 range; `--launch --stage <id> --confirm-paid` saves the experiments and launches the runs through the app.
 `harness/test/stack-agent-config.test.mjs` validates the arms with local fake model servers (no paid calls).
+Plans, results and the lessons learned so far are in [`experiments/`](../../experiments/README.md) — start with
+[`experiments/LESSONS.md`](../../experiments/LESSONS.md).
 
 ## Known gaps
 
