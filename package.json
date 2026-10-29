@@ -38,11 +38,12 @@
     "experiment:ab": "node scripts/experiment-ab.mjs"
   },
   "dependencies": {
-    "@feltdb/core": "0.15.0",
-    "@feltdb/feltkit": "^0.3.1",
+    "@feltdb/core": "0.16.0",
+    "@feltdb/feltkit": "^0.3.2",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
+  "overrides": { "@appport/services": { "@feltdb/core": "0.16.0" } },
   "devDependencies": {
     "@types/node": "22.19.1",
     "@types/react": "19.2.2",
